@@ -44,6 +44,11 @@
   .codetag{min-width:40px;text-align:center;font-weight:700;font-size:17px;letter-spacing:.04em;color:#eaf6ff;background:#1b222b;border:1px solid #39454f;border-radius:4px;padding:5px 8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.07);font-variant-numeric:tabular-nums;flex-shrink:0}
   .port.done .codetag{color:var(--green);border-color:var(--green)}
   .port.sel .codetag{border-color:var(--cyan);color:var(--cyan)}
+  .port.wired{border-color:var(--amber)}
+  .port.wired .codetag{color:var(--amber);border-color:var(--amber)}
+  svg.links.tentative line{stroke:var(--amber);filter:drop-shadow(0 0 4px rgba(255,206,84,.45))}
+  .breakerbtn{font-family:var(--mono);font-weight:700;letter-spacing:.1em;font-size:14px;cursor:pointer;width:100%;margin-top:4px;margin-bottom:8px;color:var(--bg);background:var(--amber);border:none;border-radius:4px;padding:15px;box-shadow:0 0 18px rgba(255,206,84,.3)}
+  .breakerbtn:active{transform:translateY(1px)}
   .port.sel{border-color:var(--cyan);box-shadow:0 0 14px rgba(0,229,255,.3)}
   .port.done{border-color:var(--green);opacity:.85}
   .port.done .dot{border-color:var(--green)}
@@ -135,19 +140,28 @@ function genRoutage(){
   return {variant:'routage', left, right};
 }
 const CODE_DIGITS=['2','3','4','5','6'], CODE_LETTERS=['a','b','c'];
-function genWireBox(){
+function pickCodes(n, exclude){
   const all=[]; CODE_DIGITS.forEach(d=>CODE_LETTERS.forEach(l=>all.push(d+l)));
-  let codes;
-  do { codes=shuffle(all).slice(0,WIRE_PAIRS); }
-  while(new Set(codes.map(c=>c[0])).size > 4);   // ≤4 chiffres distincts -> familles confusables (3a/3b, 6a/6c)
-  const left  = shuffle(codes).map(code=>({code, matchKey:code}));
-  const right = shuffle(codes).map(code=>({code, key:code}));
-  return {variant:'wirebox', left, right};
+  return shuffle(all.filter(c=>!exclude.has(c))).slice(0,n);
+}
+function genWireBox(){
+  const PAIRS=4, DEC=2;   // 4 vrais câbles à relier + 2 leurres de chaque côté
+  let matched, dl, dr, dig;
+  do{
+    const used=new Set();
+    matched=pickCodes(PAIRS, used); matched.forEach(c=>used.add(c));
+    dl=pickCodes(DEC, used); dl.forEach(c=>used.add(c));
+    dr=pickCodes(DEC, used); dr.forEach(c=>used.add(c));
+    dig={}; matched.concat(dl,dr).forEach(c=>dig[c[0]]=(dig[c[0]]||0)+1);
+  }while(Object.values(dig).filter(n=>n>=2).length < 2);   // au moins 2 familles confusables
+  const left  = shuffle(matched.concat(dl)).map(code=>({code}));
+  const right = shuffle(matched.concat(dr)).map(code=>({code}));
+  return {variant:'wirebox', left, right, need:PAIRS};
 }
 function genPuzzle(){ return VARIANT==='wirebox' ? genWireBox() : genRoutage(); }
 
 /* ===== État du jeu ===== */
-let PZ=null, selLeft=null, links=[];
+let PZ=null, selLeft=null, links=[], confirmed=false;
 
 function renderPuzzle(){
   const v=document.getElementById('view');
@@ -155,7 +169,7 @@ function renderPuzzle(){
   let title, sub, instrBlock, leftPorts, rightPorts;
   if(isWire){
     title='WIRE BOX — câblage du nœud';
-    sub='Reliez chaque code à son code <b>identique</b> de l\'autre côté. Attention : certains se ressemblent.';
+    sub='Reliez les codes <b>identiques</b> entre les deux colonnes. Certains n\'ont <b>pas de jumeau</b> : laissez-les. Puis abaissez le <b>disjoncteur</b> — la moindre erreur réinitialise tout.';
     instrBlock='';
     leftPorts=PZ.left.map((l,i)=>`<div class="port" id="L${i}" onclick="pickLeft(${i})"><span class="codetag">${l.code}</span><span class="pl">A${i+1}</span></div>`).join('');
     rightPorts=PZ.right.map((r,i)=>`<div class="port" id="R${i}" onclick="pickRight(${i})"><span class="codetag">${r.code}</span><span class="pl">B${i+1}</span></div>`).join('');
@@ -184,6 +198,7 @@ function renderPuzzle(){
        <svg class="links" id="svglinks"></svg>
      </div>
      <div id="msg" class="msg"></div>
+     ${isWire?'<button class="breakerbtn" onclick="flipBreaker()">⏻ ABAISSER LE DISJONCTEUR</button>':''}
      <button class="btn" onclick="resetPuzzle()">↻ Réinitialiser les câbles</button>
      <div id="status" class="status ${online?'on':'off'}">${online?'🌐 connecté au nœud':'⚠ hors ligne — préviens l\'animateur'}</div>
    </div>`;
@@ -202,17 +217,38 @@ function drawLinks(){
     h+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"></line>`;
   });
   svg.innerHTML=h;
+  svg.classList.toggle('tentative', !!(PZ && PZ.variant==='wirebox' && !confirmed));
+}
+function repaint(){
+  document.querySelectorAll('.port').forEach(p=>p.classList.remove('sel','wired','done'));
+  links.forEach(lk=>{ const a=document.getElementById('L'+lk.l), b=document.getElementById('R'+lk.r);
+    const cls=confirmed?'done':'wired'; if(a)a.classList.add(cls); if(b)b.classList.add(cls); });
+  if(selLeft!==null){ const a=document.getElementById('L'+selLeft); if(a)a.classList.add('sel'); }
+  drawLinks();
 }
 window.pickLeft=function(i){
-  if(links.some(l=>l.l===i)) return;           // déjà connecté
+  if(PZ.variant==='wirebox'){
+    if(confirmed) return;
+    const ex=links.findIndex(l=>l.l===i);
+    if(ex>=0){ links.splice(ex,1); selLeft=null; setMsg(''); repaint(); beep(300,.05); return; }
+    selLeft=i; setMsg(''); repaint(); return;
+  }
+  if(links.some(l=>l.l===i)) return;
   selLeft=i;
   document.querySelectorAll('.col.left .port').forEach(p=>p.classList.remove('sel'));
   document.getElementById('L'+i).classList.add('sel');
   setMsg('');
 };
 window.pickRight=function(j){
+  if(PZ.variant==='wirebox'){
+    if(confirmed) return;
+    const exr=links.findIndex(l=>l.r===j);
+    if(exr>=0){ links.splice(exr,1); selLeft=null; setMsg(''); repaint(); beep(300,.05); return; }
+    if(selLeft===null){ setMsg('Touchez un code à GAUCHE, puis son jumeau à droite.','err'); return; }
+    links.push({l:selLeft, r:j}); selLeft=null; setMsg(''); repaint(); beep(760,.05); return;
+  }
   if(selLeft===null){ setMsg('Touchez d\'abord une ENTRÉE à gauche.','err'); return; }
-  if(links.some(l=>l.r===j)) return;           // sortie déjà prise
+  if(links.some(l=>l.r===j)) return;
   const left=PZ.left[selLeft], right=PZ.right[j];
   if(right.key===left.matchKey){
     links.push({l:selLeft, r:j});
@@ -222,12 +258,24 @@ window.pickRight=function(j){
     selLeft=null; drawLinks(); beep(880,.05);
     if(links.length===PZ.left.length) solved();
   }else{
-    setMsg(PZ.variant==='wirebox'?'✕ Codes différents — regardez bien.':'✕ Mauvais routage — vérifiez la table.','err');
+    setMsg('✕ Mauvais routage — vérifiez la table.','err');
     const el=document.getElementById('L'+selLeft); if(el){el.classList.remove('sel');}
     selLeft=null; beep(160,.18);
   }
 };
-window.resetPuzzle=function(){ links=[]; selLeft=null; PZ=genPuzzle(); renderPuzzle(); setMsg(''); };
+window.flipBreaker=function(){
+  if(!PZ || PZ.variant!=='wirebox' || confirmed) return;
+  const ok = links.length===PZ.need && links.every(lk=>PZ.left[lk.l].code===PZ.right[lk.r].code);
+  if(ok){
+    confirmed=true; repaint(); beep(660,.1); setTimeout(()=>beep(990,.15),130);
+    solved();
+  }else{
+    setMsg('⚡ DÉFAUT DÉTECTÉ — le tableau se réinitialise.','err'); beep(140,.4);
+    links=[]; selLeft=null; confirmed=false;
+    setTimeout(repaint,500);
+  }
+};
+window.resetPuzzle=function(){ links=[]; selLeft=null; confirmed=false; PZ=genPuzzle(); renderPuzzle(); setMsg(''); };
 function setMsg(t,cls){ const m=document.getElementById('msg'); if(m){ m.textContent=t||''; m.className='msg'+(cls?' '+cls:''); } }
 async function solved(){
   setMsg('✓ Connexions établies — synchronisation…','ok'); beep(1320,.2);
