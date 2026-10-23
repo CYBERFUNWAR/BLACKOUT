@@ -2787,6 +2787,7 @@ const SETS = {
   /* ---------- MODE STANDARD (4 verrous) ---------- */
   standard: {
     durationSec: 60*60,
+    relay: { enabled:true, variant:'routage', cables:4 },
     missions: [
       { code:"NEXUS", fragment:"BLA", title:"Transmission interceptée",
         instr:"Dossier <b>01</b> — déchiffrez la transmission interceptée (chiffre de César). Saisissez le mot de passe trouvé.",
@@ -2824,7 +2825,7 @@ const SETS = {
   /* ---------- MODE EXPERT (6 verrous + coffre) ---------- */
   expert: {
     durationSec: 60*60,
-    relay: { enabled:true, cables:4 },
+    relay: { enabled:true, variant:'wirebox', pairs:6 },
     breach: { enabled:true, size:5, bufferSize:8, seqLens:[4,3], seqLabels:["OVERRIDE_ORACLE","PURGE_TRACE"], timerSec:30, alphabet:["1C","55","BD","E9","7A","FF"] },
     missions: [
       { code:"ELCARO", fragment:"B", title:"Transmission cryptée",
@@ -3216,7 +3217,8 @@ function relayBase(){
   let p=location.pathname.replace(/[^/]*$/,'');
   return u+p+'blackout_relais.html';
 }
-function relayURL(){ return relayBase()+'#S='+RELAY_SESSION; }
+function relayVariant(){ const r=SETS[state_mode]&&SETS[state_mode].relay; return (r&&r.variant)||'routage'; }
+function relayURL(){ return relayBase()+'#S='+RELAY_SESSION+'&V='+relayVariant(); }
 function makeSessionQR(){
   const box=document.getElementById('relayqr'); if(!box) return;
   box.innerHTML='';

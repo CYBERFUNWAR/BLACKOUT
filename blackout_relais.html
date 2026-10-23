@@ -41,6 +41,9 @@
   .col.right .port{flex-direction:row-reverse}
   .port .dot{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.3);flex-shrink:0}
   .port .pl{font-size:11px;color:var(--grey);letter-spacing:.08em}
+  .codetag{min-width:40px;text-align:center;font-weight:700;font-size:17px;letter-spacing:.04em;color:#eaf6ff;background:#1b222b;border:1px solid #39454f;border-radius:4px;padding:5px 8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.07);font-variant-numeric:tabular-nums;flex-shrink:0}
+  .port.done .codetag{color:var(--green);border-color:var(--green)}
+  .port.sel .codetag{border-color:var(--cyan);color:var(--cyan)}
   .port.sel{border-color:var(--cyan);box-shadow:0 0 14px rgba(0,229,255,.3)}
   .port.done{border-color:var(--green);opacity:.85}
   .port.done .dot{border-color:var(--green)}
@@ -85,7 +88,10 @@ const FIREBASE = {
   appId: "1:976273690468:web:bf14f308033851746bf471"
 };
 const COLLECTION = "relais_blackout";
-const CABLES = 4;   // nombre de câbles à router (difficulté)
+const CABLES = 4;        // routage couleurs (mode NORMAL)
+const WIRE_PAIRS = 6;    // wire box (mode EXPERT)
+function urlVariant(){ const m=(location.hash||'').match(/V=([a-z]+)/i); return m?m[1].toLowerCase():'routage'; }
+const VARIANT = urlVariant();
 
 /* ===== Palette de câbles ===== */
 const COLORS = [
@@ -121,32 +127,55 @@ function derangement(n){
   // permutation sans point fixe (aucun câble ne va "tout droit" vers sa propre couleur)
   while(true){ const p=shuffle([...Array(n).keys()]); if(p.every((v,i)=>v!==i)) return p; }
 }
-function genPuzzle(){
-  const pick=shuffle(COLORS).slice(0,CABLES);          // couleurs des ports gauche (entrées)
-  const perm=derangement(CABLES);                      // routage : entrée i -> couleur pick[perm[i]]
-  const left = pick.map((c,i)=>({color:c, target:pick[perm[i]].id}));
-  const right = shuffle(pick).map(c=>({color:c}));      // sorties, positions mélangées
-  return {left, right};
+function genRoutage(){
+  const pick=shuffle(COLORS).slice(0,CABLES);
+  const perm=derangement(CABLES);
+  const left = pick.map((c,i)=>({color:c, matchKey:pick[perm[i]].id}));
+  const right = shuffle(pick).map(c=>({color:c, key:c.id}));
+  return {variant:'routage', left, right};
 }
+const CODE_DIGITS=['2','3','4','5','6'], CODE_LETTERS=['a','b','c'];
+function genWireBox(){
+  const all=[]; CODE_DIGITS.forEach(d=>CODE_LETTERS.forEach(l=>all.push(d+l)));
+  let codes;
+  do { codes=shuffle(all).slice(0,WIRE_PAIRS); }
+  while(new Set(codes.map(c=>c[0])).size > 4);   // ≤4 chiffres distincts -> familles confusables (3a/3b, 6a/6c)
+  const left  = shuffle(codes).map(code=>({code, matchKey:code}));
+  const right = shuffle(codes).map(code=>({code, key:code}));
+  return {variant:'wirebox', left, right};
+}
+function genPuzzle(){ return VARIANT==='wirebox' ? genWireBox() : genRoutage(); }
 
 /* ===== État du jeu ===== */
 let PZ=null, selLeft=null, links=[];
 
 function renderPuzzle(){
   const v=document.getElementById('view');
-  const rows=PZ.left.map(l=>{
-    const t=COLORS.find(c=>c.id===l.target);
-    return `<div class="rrow"><span class="chip"><span class="sw" style="background:${l.color.hex}"></span>${l.color.name}</span><span class="arr">▸</span><span class="chip"><span class="sw" style="background:${t.hex}"></span>${t.name}</span></div>`;
-  }).join('');
-  const leftPorts=PZ.left.map((l,i)=>`<div class="port" id="L${i}" data-i="${i}" onclick="pickLeft(${i})"><span class="dot" style="background:${l.color.hex}"></span><span class="pl">ENTRÉE ${i+1}</span></div>`).join('');
-  const rightPorts=PZ.right.map((r,i)=>`<div class="port" id="R${i}" data-i="${i}" onclick="pickRight(${i})"><span class="dot" style="background:${r.color.hex}"></span><span class="pl">SORTIE</span></div>`).join('');
+  const isWire = PZ.variant==='wirebox';
+  let title, sub, instrBlock, leftPorts, rightPorts;
+  if(isWire){
+    title='WIRE BOX — câblage du nœud';
+    sub='Reliez chaque code à son code <b>identique</b> de l\'autre côté. Attention : certains se ressemblent.';
+    instrBlock='';
+    leftPorts=PZ.left.map((l,i)=>`<div class="port" id="L${i}" onclick="pickLeft(${i})"><span class="codetag">${l.code}</span><span class="pl">A${i+1}</span></div>`).join('');
+    rightPorts=PZ.right.map((r,i)=>`<div class="port" id="R${i}" onclick="pickRight(${i})"><span class="codetag">${r.code}</span><span class="pl">B${i+1}</span></div>`).join('');
+  } else {
+    title='Routage des câbles';
+    sub='Reliez chaque ENTRÉE à la bonne SORTIE en suivant la table de routage. Touchez une entrée, puis sa sortie.';
+    const rows=PZ.left.map(l=>{ const t=COLORS.find(c=>c.id===l.matchKey);
+      return `<div class="rrow"><span class="chip"><span class="sw" style="background:${l.color.hex}"></span>${l.color.name}</span><span class="arr">▸</span><span class="chip"><span class="sw" style="background:${t.hex}"></span>${t.name}</span></div>`;
+    }).join('');
+    instrBlock=`<div class="route"><h4>⚡ TABLE DE ROUTAGE</h4>${rows}</div>`;
+    leftPorts=PZ.left.map((l,i)=>`<div class="port" id="L${i}" onclick="pickLeft(${i})"><span class="dot" style="background:${l.color.hex}"></span><span class="pl">ENTRÉE ${i+1}</span></div>`).join('');
+    rightPorts=PZ.right.map((r,i)=>`<div class="port" id="R${i}" onclick="pickRight(${i})"><span class="dot" style="background:${r.color.hex}"></span><span class="pl">SORTIE</span></div>`).join('');
+  }
   v.innerHTML=`
    <div class="card">
      <div class="tag">// VERROU 00 — ÉTABLIR LA CONNEXION</div>
-     <div class="ttl">Routage des câbles</div>
-     <div class="sub">Reliez chaque ENTRÉE à la bonne SORTIE en suivant la table de routage. Touchez une entrée, puis sa sortie.</div>
+     <div class="ttl">${title}</div>
+     <div class="sub">${sub}</div>
      <div class="sess">SESSION ${SESSION||'—'} · AGENT ${PID.slice(1,5).toUpperCase()}</div>
-     <div class="route"><h4>⚡ TABLE DE ROUTAGE</h4>${rows}</div>
+     ${instrBlock}
      <div class="board">
        <div class="cols">
          <div class="col left">${leftPorts}</div>
@@ -185,7 +214,7 @@ window.pickRight=function(j){
   if(selLeft===null){ setMsg('Touchez d\'abord une ENTRÉE à gauche.','err'); return; }
   if(links.some(l=>l.r===j)) return;           // sortie déjà prise
   const left=PZ.left[selLeft], right=PZ.right[j];
-  if(right.color.id===left.target){
+  if(right.key===left.matchKey){
     links.push({l:selLeft, r:j});
     document.getElementById('L'+selLeft).classList.add('done');
     document.getElementById('L'+selLeft).classList.remove('sel');
@@ -193,7 +222,7 @@ window.pickRight=function(j){
     selLeft=null; drawLinks(); beep(880,.05);
     if(links.length===PZ.left.length) solved();
   }else{
-    setMsg('✕ Mauvais routage — vérifiez la table.','err');
+    setMsg(PZ.variant==='wirebox'?'✕ Codes différents — regardez bien.':'✕ Mauvais routage — vérifiez la table.','err');
     const el=document.getElementById('L'+selLeft); if(el){el.classList.remove('sel');}
     selLeft=null; beep(160,.18);
   }
