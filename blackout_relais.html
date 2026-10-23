@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GHOST:// Connexion au nœud — BLACKOUT</title>
+<style>
+  :root{
+    --bg:#05070a; --panel:#0a0f16; --panel2:#0d141d;
+    --cyan:#00e5ff; --cyan-d:#0097b2; --mag:#ff2e88;
+    --green:#2fff9a; --amber:#ffce54; --grey:#6c7f93; --lgrey:#9fb0c2; --line:#15212e;
+    --mono:ui-monospace,"Cascadia Code","Source Code Pro",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--lgrey);font-family:var(--mono);line-height:1.5;min-height:100vh;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
+    background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(0,0,0,.18) 3px,transparent 4px);mix-blend-mode:overlay;opacity:.5}
+  .wrap{max-width:480px;margin:0 auto;padding:20px 16px 44px;position:relative;z-index:1}
+  .logo{font-weight:700;font-size:15px;letter-spacing:.04em}
+  .logo .g{color:var(--cyan);text-shadow:0 0 12px rgba(0,229,255,.5)}
+  .brand{font-size:10px;color:var(--grey);letter-spacing:.26em;margin:2px 0 18px}
+  .card{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),var(--panel2));border-radius:5px;padding:18px 16px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--mag);box-shadow:0 0 14px var(--mag)}
+  .tag{font-size:10px;letter-spacing:.2em;color:var(--mag);font-weight:700}
+  .ttl{font-size:20px;color:#eaf6ff;font-weight:700;letter-spacing:.04em;margin:5px 0 4px}
+  .sub{font-size:12px;color:var(--grey);margin-bottom:16px}
+  .sess{font-size:11px;color:var(--cyan);letter-spacing:.14em;margin-bottom:14px}
+
+  .route{background:#03060a;border:1px solid var(--line);border-radius:4px;padding:12px;margin-bottom:16px}
+  .route h4{font-size:10px;letter-spacing:.18em;color:var(--amber);margin-bottom:9px;font-weight:700}
+  .rrow{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
+  .rrow:last-child{margin-bottom:0}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12px}
+  .sw{width:15px;height:15px;border-radius:3px;border:1px solid rgba(255,255,255,.25)}
+  .arr{color:var(--grey)}
+
+  .board{position:relative;margin-bottom:8px}
+  .cols{display:flex;justify-content:space-between;gap:70px}
+  .col{display:flex;flex-direction:column;gap:16px;flex:1}
+  .port{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;padding:8px;border:1px solid var(--line);border-radius:5px;background:#0a1118;transition:border-color .12s,box-shadow .12s}
+  .col.right .port{flex-direction:row-reverse}
+  .port .dot{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.3);flex-shrink:0}
+  .port .pl{font-size:11px;color:var(--grey);letter-spacing:.08em}
+  .port.sel{border-color:var(--cyan);box-shadow:0 0 14px rgba(0,229,255,.3)}
+  .port.done{border-color:var(--green);opacity:.85}
+  .port.done .dot{border-color:var(--green)}
+  svg.links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+  svg.links line{stroke:var(--green);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(47,255,154,.5))}
+
+  .msg{min-height:22px;margin:14px 0 4px;font-size:13px;text-align:center}
+  .msg.err{color:var(--mag)} .msg.ok{color:var(--green)}
+  .btn{font-family:var(--mono);font-weight:700;letter-spacing:.1em;font-size:13px;cursor:pointer;color:var(--cyan);background:transparent;border:1px solid var(--cyan-d);border-radius:4px;padding:11px 16px;width:100%;margin-top:6px}
+  .btn:active{background:rgba(0,229,255,.1)}
+
+  .done-screen{text-align:center;padding:30px 10px}
+  .done-screen .big{font-size:40px;font-weight:700;color:var(--green);text-shadow:0 0 26px rgba(47,255,154,.4);line-height:1.1;letter-spacing:.06em}
+  .done-screen .d2{color:var(--lgrey);font-size:14px;margin-top:14px}
+  .done-screen .d3{color:var(--grey);font-size:12px;margin-top:16px}
+  .notice{text-align:center;color:var(--grey);font-size:13px;line-height:1.7;padding:30px 12px}
+  .notice b{color:var(--cyan)}
+  .foot{margin-top:22px;text-align:center;font-size:10px;color:#33414f;letter-spacing:.08em}
+  .status{font-size:10px;text-align:center;margin-top:10px;color:var(--grey)}
+  .status.on{color:var(--green)} .status.off{color:var(--mag)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo"><span class="g">GHOST</span>:// <span style="color:var(--grey);font-size:11px">nœud-relais</span></div>
+  <div class="brand">PROTOCOLE&nbsp;&nbsp;B L A C K O U T</div>
+  <div id="view"></div>
+  <div class="foot">CYBER FUN — connexion sécurisée au nœud</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+/* ===== CONFIG (identique au terminal) ===== */
+const FIREBASE = {
+  apiKey: "AIzaSyB5XC4hRui4JYuQY2jqTG_Sgmlu7y1MRh0",
+  authDomain: "escape-saint-tropez.firebaseapp.com",
+  projectId: "escape-saint-tropez",
+  storageBucket: "escape-saint-tropez.firebasestorage.app",
+  messagingSenderId: "976273690468",
+  appId: "1:976273690468:web:bf14f308033851746bf471"
+};
+const COLLECTION = "relais_blackout";
+const CABLES = 4;   // nombre de câbles à router (difficulté)
+
+/* ===== Palette de câbles ===== */
+const COLORS = [
+  {id:"R", name:"ROUGE",  hex:"#ff3b3b"},
+  {id:"V", name:"VERT",   hex:"#2fff9a"},
+  {id:"B", name:"BLEU",   hex:"#00e5ff"},
+  {id:"J", name:"JAUNE",  hex:"#ffce54"},
+  {id:"P", name:"VIOLET", hex:"#b36bff"},
+  {id:"O", name:"ORANGE", hex:"#ff8c3b"}
+];
+
+/* ===== Session + identité ===== */
+function sessionCode(){ const m=(location.hash||'').match(/S=([A-Z0-9]+)/i); return m?m[1].toUpperCase():null; }
+function playerId(){
+  let p; try{ p=localStorage.getItem('blackout_pid'); }catch(e){}
+  if(!p){ p='a'+Math.random().toString(36).slice(2,8); try{localStorage.setItem('blackout_pid',p);}catch(e){} }
+  return p;
+}
+const SESSION=sessionCode(), PID=playerId();
+
+/* ===== Firebase ===== */
+let db=null, online=false;
+try{ const app=initializeApp(FIREBASE); db=getFirestore(app); online=true; }catch(e){ online=false; }
+async function writePlayer(validated){
+  if(!db||!SESSION) return false;
+  try{ await setDoc(doc(db, COLLECTION, SESSION+'_'+PID), {session:SESSION, pid:PID, validated:!!validated, ts:Date.now()}); return true; }
+  catch(e){ console.warn('write fail',e); return false; }
+}
+
+/* ===== Génération de l'énigme (routage de câbles) ===== */
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function derangement(n){
+  // permutation sans point fixe (aucun câble ne va "tout droit" vers sa propre couleur)
+  while(true){ const p=shuffle([...Array(n).keys()]); if(p.every((v,i)=>v!==i)) return p; }
+}
+function genPuzzle(){
+  const pick=shuffle(COLORS).slice(0,CABLES);          // couleurs des ports gauche (entrées)
+  const perm=derangement(CABLES);                      // routage : entrée i -> couleur pick[perm[i]]
+  const left = pick.map((c,i)=>({color:c, target:pick[perm[i]].id}));
+  const right = shuffle(pick).map(c=>({color:c}));      // sorties, positions mélangées
+  return {left, right};
+}
+
+/* ===== État du jeu ===== */
+let PZ=null, selLeft=null, links=[];
+
+function renderPuzzle(){
+  const v=document.getElementById('view');
+  const rows=PZ.left.map(l=>{
+    const t=COLORS.find(c=>c.id===l.target);
+    return `<div class="rrow"><span class="chip"><span class="sw" style="background:${l.color.hex}"></span>${l.color.name}</span><span class="arr">▸</span><span class="chip"><span class="sw" style="background:${t.hex}"></span>${t.name}</span></div>`;
+  }).join('');
+  const leftPorts=PZ.left.map((l,i)=>`<div class="port" id="L${i}" data-i="${i}" onclick="pickLeft(${i})"><span class="dot" style="background:${l.color.hex}"></span><span class="pl">ENTRÉE ${i+1}</span></div>`).join('');
+  const rightPorts=PZ.right.map((r,i)=>`<div class="port" id="R${i}" data-i="${i}" onclick="pickRight(${i})"><span class="dot" style="background:${r.color.hex}"></span><span class="pl">SORTIE</span></div>`).join('');
+  v.innerHTML=`
+   <div class="card">
+     <div class="tag">// VERROU 00 — ÉTABLIR LA CONNEXION</div>
+     <div class="ttl">Routage des câbles</div>
+     <div class="sub">Reliez chaque ENTRÉE à la bonne SORTIE en suivant la table de routage. Touchez une entrée, puis sa sortie.</div>
+     <div class="sess">SESSION ${SESSION||'—'} · AGENT ${PID.slice(1,5).toUpperCase()}</div>
+     <div class="route"><h4>⚡ TABLE DE ROUTAGE</h4>${rows}</div>
+     <div class="board">
+       <div class="cols">
+         <div class="col left">${leftPorts}</div>
+         <div class="col right">${rightPorts}</div>
+       </div>
+       <svg class="links" id="svglinks"></svg>
+     </div>
+     <div id="msg" class="msg"></div>
+     <button class="btn" onclick="resetPuzzle()">↻ Réinitialiser les câbles</button>
+     <div id="status" class="status ${online?'on':'off'}">${online?'🌐 connecté au nœud':'⚠ hors ligne — préviens l\'animateur'}</div>
+   </div>`;
+  drawLinks();
+}
+function drawLinks(){
+  const svg=document.getElementById('svglinks'); if(!svg) return;
+  const board=svg.parentElement, br=board.getBoundingClientRect();
+  svg.setAttribute('viewBox',`0 0 ${br.width} ${br.height}`);
+  let h='';
+  links.forEach(lk=>{
+    const a=document.getElementById('L'+lk.l), b=document.getElementById('R'+lk.r); if(!a||!b) return;
+    const ar=a.getBoundingClientRect(), brr=b.getBoundingClientRect();
+    const x1=ar.right-br.left-6, y1=ar.top-br.top+ar.height/2;
+    const x2=brr.left-br.left+6, y2=brr.top-br.top+brr.height/2;
+    h+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"></line>`;
+  });
+  svg.innerHTML=h;
+}
+window.pickLeft=function(i){
+  if(links.some(l=>l.l===i)) return;           // déjà connecté
+  selLeft=i;
+  document.querySelectorAll('.col.left .port').forEach(p=>p.classList.remove('sel'));
+  document.getElementById('L'+i).classList.add('sel');
+  setMsg('');
+};
+window.pickRight=function(j){
+  if(selLeft===null){ setMsg('Touchez d\'abord une ENTRÉE à gauche.','err'); return; }
+  if(links.some(l=>l.r===j)) return;           // sortie déjà prise
+  const left=PZ.left[selLeft], right=PZ.right[j];
+  if(right.color.id===left.target){
+    links.push({l:selLeft, r:j});
+    document.getElementById('L'+selLeft).classList.add('done');
+    document.getElementById('L'+selLeft).classList.remove('sel');
+    document.getElementById('R'+j).classList.add('done');
+    selLeft=null; drawLinks(); beep(880,.05);
+    if(links.length===PZ.left.length) solved();
+  }else{
+    setMsg('✕ Mauvais routage — vérifiez la table.','err');
+    const el=document.getElementById('L'+selLeft); if(el){el.classList.remove('sel');}
+    selLeft=null; beep(160,.18);
+  }
+};
+window.resetPuzzle=function(){ links=[]; selLeft=null; PZ=genPuzzle(); renderPuzzle(); setMsg(''); };
+function setMsg(t,cls){ const m=document.getElementById('msg'); if(m){ m.textContent=t||''; m.className='msg'+(cls?' '+cls:''); } }
+async function solved(){
+  setMsg('✓ Connexions établies — synchronisation…','ok'); beep(1320,.2);
+  await writePlayer(true);
+  showDone();
+}
+function showDone(){
+  document.getElementById('view').innerHTML=`
+   <div class="card"><div class="done-screen">
+     <div class="big">CONNEXION<br>ÉTABLIE</div>
+     <div class="d2">Votre nœud est synchronisé au cœur de NEXUS.</div>
+     <div class="d3">Regardez l'écran principal : le hack démarre dès que toute l'équipe est connectée. Gardez votre téléphone, il pourra resservir.</div>
+   </div></div>`;
+}
+
+/* ===== son ===== */
+let ac=null;
+function beep(f,d){ try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(),g=ac.createGain(); o.type='square'; o.frequency.value=f; g.gain.value=.05; o.connect(g); g.connect(ac.destination); o.start(); g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1)); o.stop(ac.currentTime+(d||.1)); }catch(e){} }
+
+/* ===== routage d'affichage ===== */
+window.addEventListener('resize', ()=>{ if(PZ) drawLinks(); });
+function boot(){
+  if(!SESSION){
+    document.getElementById('view').innerHTML='<div class="card"><div class="notice">Aucune session détectée.<br><br>Scannez le <b>QR code affiché sur l\'écran de jeu</b> pour vous connecter au nœud-relais de votre équipe.</div></div>';
+    return;
+  }
+  PZ=genPuzzle(); renderPuzzle();
+  writePlayer(false);   // signale "connecté" (pas encore validé)
+}
+boot();
+</script>
+</body>
+</html>
