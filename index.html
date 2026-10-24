@@ -3003,6 +3003,7 @@ window.LB = {
 let lastWinTs=null;
 window.RELAY = window.RELAY || { online:false, listen(){return function(){};}, async cleanup(){} };
 window.LIVE = window.LIVE || { online:false, async publish(){}, async clearOld(){} };
+window.STATS = window.STATS || { online:false, async add(){} };
 let GAME_ID=null, liveInt=null, livePhase="hack";
 function esc(t){return (t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));}
 
@@ -3190,7 +3191,7 @@ function startTimer(){
     }
     // seuils ORACLE
     if(!state.oWarn && state.remaining<=CONFIG.warnAtSec && state.remaining>CONFIG.critAtSec){ state.oWarn=true; oracle('warn'); }
-    if(!state.oCrit && state.remaining<=CONFIG.critAtSec){ state.oCrit=true; sfx('alert'); fireHook('alert'); oracle('crit'); }
+    if(!state.oCrit && state.remaining<=CONFIG.critAtSec){ state.oCrit=true; sfx('alert'); fireHook('alert'); setTimeout(()=>oracle('crit'),1600); }
     // taunt périodique (toutes les ~3 min) hors zones de seuil
     const elapsed=DURATION-state.remaining;
     if(elapsed>0 && elapsed-(state.oLast||0)>=180){ state.oLast=elapsed; oracle('periodic'); }
@@ -3288,8 +3289,9 @@ function submitCode(){
     }
   } else {
     state.wrongTotal++;
-    sfx('error', ()=>beep(160,0.18,"sawtooth"));
-    if(state.wrongTotal%2===0) oracle('wrong');
+    const oracleComments=(state.wrongTotal%2===0);
+    if(!oracleComments) sfx('error', ()=>beep(160,0.18,"sawtooth"));
+    if(oracleComments) oracle('wrong');
     msg.className='msgline err'; msg.textContent='✕ ACCÈS REFUSÉ — code invalide. Réessayez.';
     inp.classList.add('shake'); setTimeout(()=>inp.classList.remove('shake'),400);
     log('<span class="m">[!]</span> tentative refusée : '+(val||'∅'));
@@ -3314,8 +3316,10 @@ function nextHint(){
     h.textContent='› '+m.hints[state.hintShown];
   }
   document.getElementById('hints').appendChild(h);
-  state.hintShown++; state.hintsTotal++; updateHintCount(); beep(440,0.08);
-  if(state.hintsTotal%2===1) oracle('hint');
+  state.hintShown++; state.hintsTotal++; updateHintCount();
+  const oracleHint=(state.hintsTotal%2===1);
+  if(!oracleHint) beep(440,0.08);
+  if(oracleHint) oracle('hint');
   log('<span class="a">[INDICE]</span> verrou '+(state.final?'final':'0'+(state.idx+1))+' — indice '+state.hintShown+' demandé.');
 }
 
@@ -3445,7 +3449,26 @@ function winGame(){
   renderScorecard(sc, rk, used);
   show('win');
   stopLivePublish(); publishLive('gagné'); fireHook('win');
+  logStats('win', sc.score, rk.letter, used);
   (async()=>{ try{ await window.LB.submit(entry); }catch(e){} renderWinLeaderboard(); })();
+}
+function logStats(result, score, rank, used){
+  try{
+    const rec={
+      team: (state&&state.teamName)||'CELLULE GHOST',
+      mode: state_mode, variant: ACTIVE_VARIANT,
+      result: result,
+      score: (score!=null?score:0),
+      rank: (rank||'-'),
+      time: (used!=null?used:0),
+      hints: state.hintsTotal||0, wrong: state.wrongTotal||0,
+      penalty: state.regiePenalty||0,
+      done: (state.got?state.got.length:0), total: (MISSIONS?MISSIONS.length:0),
+      agents: state.agentCount||0,
+      ts: Date.now(), date: new Date().toISOString()
+    };
+    if(window.STATS) window.STATS.add(rec);
+  }catch(e){}
 }
 function loseGame(){
   if(state.finished) return;
@@ -3453,6 +3476,7 @@ function loseGame(){
   { const fx=document.getElementById('alertfx'); if(fx) fx.classList.remove('on'); }
   sfx('lose', ()=>beep(120,0.4,"sawtooth"));
   stopLivePublish(); publishLive('perdu'); fireHook('lose');
+  logStats('lose', 0, '-', DURATION-state.remaining);
   const ls=document.getElementById('losestat');
   if(ls) ls.innerHTML=
      '<div>&#9656; Verrous franchis : <b style="color:var(--cyan)">'+state.idx+' / '+MISSIONS.length+'</b></div>'
@@ -3824,6 +3848,11 @@ initState();
         const snap = await fs.getDocs(fs.query(fs.collection(db, RN), fs.where("session","==",code)));
         await Promise.all(snap.docs.map(d => fs.deleteDoc(d.ref)));
       }
+    };
+    const SN = "stats_blackout";
+    window.STATS = {
+      online: true,
+      async add(rec){ await fs.addDoc(fs.collection(db, SN), rec); }
     };
     const LN = "live_blackout";
     window.LIVE = {
