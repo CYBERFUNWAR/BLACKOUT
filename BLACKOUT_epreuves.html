@@ -2414,36 +2414,36 @@ var qrcode = function() {
 </script>
 <script>
 /* ============ ÉPREUVES (modifiables) ============ */
-const NODES = {
-  A:{ title:"NŒUD-RELAIS A", pos:1,
-      q:"Décodez la trame binaire interceptée. Convertissez-la en décimal :",
-      big:"0100", hintmini:"base 2 → base 10",
-      answer:["4"], result:4,
-      note:"Reportez ce chiffre en POSITION 1 de la fréquence sur le terminal." },
-  B:{ title:"NŒUD-RELAIS B", pos:2,
-      q:"Le pare-feu compte les bits actifs. Combien de bits à 1 dans cet octet ?",
-      big:"1100 0000", hintmini:"comptez les « 1 »",
-      answer:["2"], result:2,
-      note:"Reportez ce chiffre en POSITION 2 de la fréquence sur le terminal." },
-  C:{ title:"NŒUD-RELAIS C", pos:3,
-      q:"Arithmétique hexadécimale. Calculez (en décimal) :",
-      big:"0xF − 0x8", hintmini:"0xF = 15 · 0x8 = 8",
-      answer:["7"], result:7,
-      note:"Reportez ce chiffre en POSITION 3 de la fréquence sur le terminal." },
-  D:{ title:"NŒUD-RELAIS D", pos:4,
-      q:"Opération logique XOR (ⵙ). Calculez le résultat (en décimal) :",
-      big:"0101 ⊕ 0100", hintmini:"XOR : 1 si les bits diffèrent",
-      answer:["1"], result:1,
-      note:"Reportez ce chiffre en POSITION 4 de la fréquence sur le terminal." },
+const SETS = {
+  A:{ code:"4271",
+    A:{ title:"NŒUD-RELAIS A", pos:1, q:"Décodez la trame binaire interceptée. Convertissez-la en décimal :", big:"0100", hintmini:"base 2 → base 10", answer:["4"], result:4, note:"Reportez ce chiffre en POSITION 1 de la fréquence sur le terminal." },
+    B:{ title:"NŒUD-RELAIS B", pos:2, q:"Le pare-feu compte les bits actifs. Combien de bits à 1 dans cet octet ?", big:"1100 0000", hintmini:"comptez les « 1 »", answer:["2"], result:2, note:"Reportez ce chiffre en POSITION 2 de la fréquence sur le terminal." },
+    C:{ title:"NŒUD-RELAIS C", pos:3, q:"Arithmétique hexadécimale. Calculez (en décimal) :", big:"0xF − 0x8", hintmini:"0xF = 15 · 0x8 = 8", answer:["7"], result:7, note:"Reportez ce chiffre en POSITION 3 de la fréquence sur le terminal." },
+    D:{ title:"NŒUD-RELAIS D", pos:4, q:"Opération logique XOR (⊕). Calculez le résultat (en décimal) :", big:"0101 ⊕ 0100", hintmini:"XOR : 1 si les bits diffèrent", answer:["1"], result:1, note:"Reportez ce chiffre en POSITION 4 de la fréquence sur le terminal." },
+  },
+  B:{ code:"5386",
+    A:{ title:"NŒUD-RELAIS A", pos:1, q:"Décodez la trame binaire interceptée. Convertissez-la en décimal :", big:"0101", hintmini:"base 2 → base 10", answer:["5"], result:5, note:"Reportez ce chiffre en POSITION 1 de la fréquence sur le terminal." },
+    B:{ title:"NŒUD-RELAIS B", pos:2, q:"Le pare-feu compte les bits actifs. Combien de bits à 1 dans cet octet ?", big:"1011 0000", hintmini:"comptez les « 1 »", answer:["3"], result:3, note:"Reportez ce chiffre en POSITION 2 de la fréquence sur le terminal." },
+    C:{ title:"NŒUD-RELAIS C", pos:3, q:"Arithmétique hexadécimale. Calculez (en décimal) :", big:"0xF − 0x7", hintmini:"0xF = 15 · 0x7 = 7", answer:["8"], result:8, note:"Reportez ce chiffre en POSITION 3 de la fréquence sur le terminal." },
+    D:{ title:"NŒUD-RELAIS D", pos:4, q:"Opération logique XOR (⊕). Calculez le résultat (en décimal) :", big:"0011 ⊕ 0101", hintmini:"XOR : 1 si les bits diffèrent", answer:["6"], result:6, note:"Reportez ce chiffre en POSITION 4 de la fréquence sur le terminal." },
+  },
+  C:{ code:"9147",
+    A:{ title:"NŒUD-RELAIS A", pos:1, q:"Décodez la trame binaire interceptée. Convertissez-la en décimal :", big:"1001", hintmini:"base 2 → base 10", answer:["9"], result:9, note:"Reportez ce chiffre en POSITION 1 de la fréquence sur le terminal." },
+    B:{ title:"NŒUD-RELAIS B", pos:2, q:"Le pare-feu compte les bits actifs. Combien de bits à 1 dans cet octet ?", big:"0001 0000", hintmini:"comptez les « 1 »", answer:["1"], result:1, note:"Reportez ce chiffre en POSITION 2 de la fréquence sur le terminal." },
+    C:{ title:"NŒUD-RELAIS C", pos:3, q:"Arithmétique hexadécimale. Calculez (en décimal) :", big:"0xA − 0x6", hintmini:"0xA = 10 · 0x6 = 6", answer:["4"], result:4, note:"Reportez ce chiffre en POSITION 3 de la fréquence sur le terminal." },
+    D:{ title:"NŒUD-RELAIS D", pos:4, q:"Opération logique XOR (⊕). Calculez le résultat (en décimal) :", big:"0010 ⊕ 0101", hintmini:"XOR : 1 si les bits diffèrent", answer:["7"], result:7, note:"Reportez ce chiffre en POSITION 4 de la fréquence sur le terminal." },
+  }
 };
+function gameVariant(){ var m=(location.search||"").match(/[?&]g=([ABC])/i); return m?m[1].toUpperCase():"A"; }
+function curSet(){ return SETS[gameVariant()]||SETS.A; }
 
 function norm(s){return (s||"").toLowerCase().replace(/[^a-z0-9]/g,"");}
 
 function renderNode(key){
-  const n=NODES[key]; const v=document.getElementById('view');
+  const n=curSet()[key]; const v=document.getElementById('view');
   v.innerHTML=`
    <div class="node">
-     <div class="ntag">// INTRUSION — ${n.title}</div>
+     <div class="ntag">// INTRUSION — ${n.title} · JEU ${gameVariant()}</div>
      <div class="ntitle">Épreuve d'accès</div>
      <div class="nsub">Résolvez pour extraire votre fragment de fréquence.</div>
      <div class="puzzle">
@@ -2467,7 +2467,7 @@ function renderNode(key){
 }
 let tries={};
 function check(key){
-  const n=NODES[key]; const inp=document.getElementById('ans');
+  const n=curSet()[key]; const inp=document.getElementById('ans');
   const msg=document.getElementById('msg'); const val=norm(inp.value);
   if(!val){inp.focus();return;}
   if(n.answer.map(norm).includes(val)){
@@ -2491,6 +2491,13 @@ function renderQR(){
    <div class="home qrgen">
      <h1>// RÉGIE — Génération des QR codes</h1>
      <p>Voici les 4 QR codes des nœuds-relais. Ils pointent automatiquement vers la page hébergée. Imprimez, découpez et cachez-les avant la partie.</p>
+     <label>Jeu d'énigmes (doit correspondre au jeu lancé sur le terminal)</label>
+     <select id="qrgame" onchange="buildQR()">
+       <option value="A">Jeu A · BLACKOUT — code 4271</option>
+       <option value="B">Jeu B · OVERRIDE — code 5386</option>
+       <option value="C">Jeu C · SHUTDOWN — code 9147</option>
+     </select>
+     <div id="qrcodeinfo" class="note2" style="margin:10px 0"></div>
      <label>URL de base (détectée — modifiable si besoin)</label>
      <input id="baseurl" type="text" value="">
      <button class="btn" style="margin-top:12px" onclick="buildQR()">↻ Générer les QR</button>
@@ -2503,6 +2510,7 @@ function renderQR(){
      </div>
    </div>`;
   document.getElementById('baseurl').value=baseURL();
+  var gsel=document.getElementById('qrgame'); if(gsel) gsel.value=gameVariant();
   buildQR();
 }
 function makeQR(target,text){
@@ -2516,11 +2524,15 @@ function makeQR(target,text){
 function buildQR(){
   let base=document.getElementById('baseurl').value.trim();
   if(base.includes('#')) base=base.split('#')[0];
+  if(base.includes('?')) base=base.split('?')[0];
+  const g=(document.getElementById('qrgame')||{}).value||'A';
+  const info=document.getElementById('qrcodeinfo');
+  if(info) info.innerHTML='Jeu <b>'+g+'</b> — code attendu sur le terminal : <b style="color:var(--amber)">'+(SETS[g]?SETS[g].code:'?')+'</b>. Chaque QR encode <code>?g='+g+'</code>, il ouvre donc l\'épreuve du bon jeu.';
   const grid=document.getElementById('qrgrid'); grid.innerHTML='';
   ['A','B','C','D'].forEach(k=>{
-    const url=base+'#'+k;
+    const url=base+'?g='+g+'#'+k;
     const card=document.createElement('div'); card.className='qrcard';
-    card.innerHTML=`<div class="lab">GHOST:// NŒUD ${k}</div><div class="qrimg"></div><div class="cap">[ ${k} ] scannez ce nœud</div>`;
+    card.innerHTML=`<div class="lab">GHOST:// NŒUD ${k} · JEU ${g}</div><div class="qrimg"></div><div class="cap">[ ${k} ] scannez ce nœud</div>`;
     grid.appendChild(card);
     makeQR(card.querySelector('.qrimg'),url);
   });
@@ -2532,14 +2544,14 @@ function renderHome(){
    <div class="home">
      <h1>// NŒUD-RELAIS GHOST://</h1>
      <p>Cette adresse héberge les nœuds-relais de l'opération BLACKOUT. Vous y accédez normalement en <b>scannant un QR code</b> trouvé dans la zone d'intrusion.</p>
-     <p>Accès directs : <code>#A</code> <code>#B</code> <code>#C</code> <code>#D</code></p>
+     <p>Accès directs : <code>#A</code> <code>#B</code> <code>#C</code> <code>#D</code> &nbsp;·&nbsp; jeu actif : <b>${gameVariant()}</b> (ajoutez <code>?g=A/B/C</code> pour changer de jeu)</p>
      <p style="color:var(--grey);margin-top:14px">Animateur : ouvrez <code>#qr</code> pour générer et imprimer les QR codes.</p>
    </div>`;
 }
 function route(){
   const h=(location.hash||'').replace('#','').toUpperCase();
   if(h==='QR'||h==='REGIE') return renderQR();
-  if(NODES[h]) return renderNode(h);
+  if(curSet()[h]) return renderNode(h);
   renderHome();
 }
 window.addEventListener('hashchange',route);

@@ -331,6 +331,25 @@
   .lose-art .blip{fill:var(--mag);stroke:none;animation:blip 1.2s ease-in-out infinite}
   @keyframes radar{to{transform:rotate(360deg)}}
   @keyframes blip{0%,100%{opacity:.2}50%{opacity:1}}
+
+  /* ---- Séquence de démarrage (boot) ---- */
+  #bootseq{position:fixed;inset:0;z-index:120;background:radial-gradient(1200px 600px at 50% 30%,#06121a,#02060a 70%);
+    display:flex;flex-direction:column;justify-content:center;padding:28px 20px;
+    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;color:#9fe9c7;overflow:hidden;transition:opacity .55s ease}
+  #bootseq.gone{opacity:0;pointer-events:none}
+  #bootseq .bwrap{max-width:680px;margin:0 auto;width:100%}
+  #bootseq .bline{font-size:13.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word;
+    opacity:0;transform:translateY(4px);animation:bfade .22s forwards}
+  #bootseq .bline .ok{color:#00e5ff}
+  #bootseq .bline.head{color:#00e5ff;font-weight:800;font-size:16px;letter-spacing:1px;margin-bottom:6px}
+  #bootseq .bline.warn{color:#ff2d55;font-weight:700}
+  #bootseq .bline.rdy{color:#00ff9c;font-weight:800;margin-top:10px;font-size:15px}
+  #bootseq .bbar{height:9px;border:1px solid #13303a;border-radius:6px;margin:16px 0 2px;overflow:hidden;background:#04121a}
+  #bootseq .bbar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0097b2,#00e5ff);
+    box-shadow:0 0 12px rgba(0,229,255,.8);transition:width .3s ease}
+  #bootseq .bskip{position:absolute;left:0;right:0;bottom:16px;text-align:center;font-size:11px;letter-spacing:2px;color:#3f6670}
+  #bootseq .boot-eye{--eye:64px;display:block;margin:0 auto 14px;line-height:0}
+  @keyframes bfade{to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -342,6 +361,14 @@
   </radialGradient>
 </defs></svg>
 <div id="alertfx"></div>
+<div id="bootseq" aria-hidden="true">
+  <div class="bwrap">
+    <div class="oracle-eye boot-eye" id="bootEye"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg></div>
+    <div id="bootlog"></div>
+    <div class="bbar"><i id="bootbar"></i></div>
+  </div>
+  <div class="bskip">▸ touchez l’écran ou une touche pour passer</div>
+</div>
 <div class="wrap">
 
   <!-- ============ INTRO ============ -->
@@ -2915,7 +2942,7 @@ const SOUNDS = {
    3 jeux A / B / C par mode, mots finaux différents (BLACKOUT / OVERRIDE / SHUTDOWN).
    Le jeu actif se choisit à l'accueil (doit correspondre aux FEUILLES IMPRIMÉES).
    Mécaniques identiques ; seules les réponses et le mot final changent.
-   NB EXPERT : le verrou 02 (épreuves web QR) garde le code 4271 dans les 3 jeux
+   NB EXPERT : le verrou 02 (épreuves web QR) a un code propre à chaque jeu — A:4271 · B:5386 · C:9147 (page épreuves ?g=A/B/C)
    (la page d'épreuves n'est pas dupliquée) ; seul son fragment change. */
 const H = {
   cesarStd:[
@@ -3009,8 +3036,8 @@ const SETS = {
     breach: { enabled:true, size:5, bufferSize:8, seqLens:[4,3], seqLabels:["OVERRIDE_ORACLE","PURGE_TRACE"], timerSec:30, alphabet:["1C","55","BD","E9","7A","FF"] },
     variants: {
       A: { label:"A · BLACKOUT", missions:mkMissions(DEF.exp, ["ELCARO","4271","OMEGA","2780","SPECTRE","4011"], ["B","LA","C","K","OU","T"]), final:mkFinal('expert',"BLACKOUT") },
-      B: { label:"B · OVERRIDE", missions:mkMissions(DEF.exp, ["METSYS","4271","DELTA","5319","NEMESIS","4444"], ["O","VE","R","R","ID","E"]), final:mkFinal('expert',"OVERRIDE") },
-      C: { label:"C · SHUTDOWN", missions:mkMissions(DEF.exp, ["SSECCA","4271","SIGMA","6402","CERBERE","6051"], ["S","HU","T","D","OW","N"]), final:mkFinal('expert',"SHUTDOWN") }
+      B: { label:"B · OVERRIDE", missions:mkMissions(DEF.exp, ["METSYS","5386","DELTA","5319","NEMESIS","4444"], ["O","VE","R","R","ID","E"]), final:mkFinal('expert',"OVERRIDE") },
+      C: { label:"C · SHUTDOWN", missions:mkMissions(DEF.exp, ["SSECCA","9147","SIGMA","6402","CERBERE","6051"], ["S","HU","T","D","OW","N"]), final:mkFinal('expert',"SHUTDOWN") }
     }
   }
 };
@@ -3971,7 +3998,48 @@ function startBgFx(){
   }
   requestAnimationFrame(frame);
 }
+
+/* ===================== SÉQUENCE DE DÉMARRAGE (BOOT) ===================== */
+function runBoot(){
+  var ov=document.getElementById("bootseq"); if(!ov) return;
+  var logEl=document.getElementById("bootlog"), bar=document.getElementById("bootbar"), eye=document.getElementById("bootEye");
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var LINES=[
+    {t:"GHOST://netrunner  v4.2.1  —  séquence d’amorçage", c:"head"},
+    {t:"> montage du périmètre NEXUS ............. [OK]"},
+    {t:"> injection du daemon fantôme ........... [OK]"},
+    {t:"> contournement du pare-feu CORP ........ [OK]"},
+    {t:"> cartographie des verrous de sécurité .. [OK]"},
+    {t:"> acquisition du canal ORACLE ........... [ scan ]", wake:1},
+    {t:"! signal ORACLE capté — IA EN VEILLE", c:"warn"},
+    {t:"> liaison cellule GHOST établie ......... [OK]"},
+    {t:"PRÊT.  Initiez le protocole BLACKOUT.", c:"rdy"}
+  ];
+  function fmtLine(L){ var d=document.createElement("div"); d.className="bline"+(L.c?(" "+L.c):"");
+    d.innerHTML=String(L.t).replace("[OK]","[<span class=\"ok\">OK</span>]"); return d; }
+  var i=0, done=false;
+  function finish(){ if(done) return; done=true; ov.classList.add("gone");
+    window.removeEventListener("keydown",skip); ov.removeEventListener("click",skip);
+    setTimeout(function(){ if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); },620); }
+  function skip(){ finish(); }
+  function step(){
+    if(i>=LINES.length){ bar.style.width="100%"; setTimeout(finish,650); return; }
+    var L=LINES[i]; logEl.appendChild(fmtLine(L));
+    bar.style.width=Math.round(((i+1)/LINES.length)*100)+"%";
+    if(L.wake && eye) eye.classList.add("alert");
+    i++;
+    setTimeout(step, L.c==="warn"?640:(L.c==="rdy"?320:255));
+  }
+  ov.addEventListener("click",skip); window.addEventListener("keydown",skip);
+  if(reduce){
+    LINES.forEach(function(L){ var d=fmtLine(L); d.style.animation="none"; d.style.opacity="1"; d.style.transform="none"; logEl.appendChild(d); });
+    bar.style.width="100%"; if(eye) eye.classList.add("alert"); setTimeout(finish,1300); return;
+  }
+  setTimeout(step,320);
+}
+
 startBgFx();
+try{ runBoot(); }catch(e){}
 initState();
 </script>
 
