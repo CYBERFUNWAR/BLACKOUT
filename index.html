@@ -3017,8 +3017,10 @@ function initState(){
 const _sfxCache={}; let _sfxPlaying=[];
 function stopAllSfx(){ _sfxPlaying.forEach(a=>{try{a.pause();a.currentTime=0;}catch(e){}}); _sfxPlaying=[]; stopSpeak(); }
 function sfxBase(){ const p=location.pathname.replace(/[^/]*$/,''); return (location.origin==='null'?'':location.origin)+p; }
+var _speaking=false;
 function sfx(name, fallback){
   if(!CONFIG.sound){ return; }
+  if(_speaking){ return; }   // ORACLE parle : pas d'effet par-dessus
   const file=SOUNDS[name];
   if(file){
     try{
@@ -3046,16 +3048,20 @@ function speak(txt){
     if(!_voices.length) _loadVoices();
     const v=_voices.find(x=>x.lang&&x.lang.toLowerCase().indexOf((CONFIG.voiceLang||'fr').slice(0,2))===0);
     if(v) u.voice=v;
+    _speaking=true;
+    u.onend=()=>{ _speaking=false; };
+    u.onerror=()=>{ _speaking=false; };
     window.speechSynthesis.speak(u);
-  }catch(e){}
+  }catch(e){ _speaking=false; }
 }
-function stopSpeak(){ try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){} }
+function stopSpeak(){ _speaking=false; try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){} }
 function fireHook(ev){
   try{ const url=(CONFIG.webhooks||{})[ev]; if(!url) return;
     fetch(url,{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(e){}
 }
 function beep(freq,dur,type){
   if(!CONFIG.sound) return;
+  if(_speaking) return;   // ORACLE parle : silence des bips
   try{
     audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
     const o=audioCtx.createOscillator(), g=audioCtx.createGain();
@@ -3098,8 +3104,11 @@ function oracle(kind){
   const pool=ORACLE_LINES[kind]; if(!pool||!pool.length) return;
   const line=pool[Math.floor(Math.random()*pool.length)];
   log('<span class="o">[ORACLE]</span> '+line);
-  sfx('oracle', ()=>beep(90,0.18,'sawtooth'));
-  speak(line);
+  if(CONFIG.sound && CONFIG.voice && typeof window!=='undefined' && window.speechSynthesis){
+    speak(line);                                   // la voix EST l'effet d'ORACLE
+  } else {
+    sfx('oracle', ()=>beep(90,0.18,'sawtooth'));   // sinon, le glitch
+  }
 }
 function log(html){
   const el=document.getElementById('log');
