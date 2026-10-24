@@ -212,6 +212,8 @@
   .teamfield input{width:100%;font-family:var(--mono);font-size:15px;letter-spacing:.06em;color:var(--cyan);
     background:#03060a;border:1px solid var(--cyan-d);border-radius:3px;padding:13px 14px;outline:none;text-align:center}
   .teamfield input::placeholder{color:#2c4050;letter-spacing:.02em}
+  .teamfield select{width:100%;font-family:var(--mono);font-size:14px;letter-spacing:.04em;color:var(--cyan);
+    background:#03060a;border:1px solid var(--cyan-d);border-radius:3px;padding:12px 14px;outline:none}
   /* ===================== BREACH PROTOCOL ===================== */
   .breach-intro{font-size:13px;color:var(--lgrey);margin:4px 0 16px;border-left:3px solid var(--mag);padding-left:12px}
   .breach-wrap{display:flex;gap:18px;flex-wrap:wrap}
@@ -311,6 +313,12 @@
              placeholder="Nom de votre cellule (optionnel)">
       <input id="agentcount" type="number" min="1" max="12" inputmode="numeric"
              placeholder="Nb d'agents (EXPERT) — ex. 6" style="margin-top:8px">
+      <select id="variantsel" onchange="setVariant(this.value)" style="margin-top:8px"
+              title="Doit correspondre aux feuilles imprimées">
+        <option value="A">Jeu d'énigmes A · BLACKOUT</option>
+        <option value="B">Jeu d'énigmes B · OVERRIDE</option>
+        <option value="C">Jeu d'énigmes C · SHUTDOWN</option>
+      </select>
     </div>
     <div class="modepick">
       <button class="btn full" onclick="startGame('standard')">▸ INITIER — MODE STANDARD</button>
@@ -489,9 +497,8 @@
   </div>
   <div class="hintkey">
     <b>Ouvrir la régie :</b> touche <b>R</b> ou 3 clics sur le logo, puis le <b>code régie</b>.<br><br>
-    <b>Codes des verrous</b> (modifiables dans SETS en haut du fichier) :<br>
-    STANDARD — 01 NEXUS · 02 4271 · 03 OMEGA · 04 1337 · BLACKOUT.<br>
-    EXPERT — 01 ELCARO · 02 4271 · 03 OMEGA · 04 2780(coffre) · 05 SPECTRE · 06 4011 · BLACKOUT.
+    <b>Codes du jeu en cours</b> (voir la fiche MJ du jeu A/B/C) :<br>
+    <span id="regiecodes">—</span>
   </div>
 </div>
 
@@ -2828,102 +2835,112 @@ const SOUNDS = {
   lose:   "sfx/glitch_lose.mp3"      // défaite
 };
 
+/* ═══════════════ JEUX D'ÉNIGMES (rejouabilité) ═══════════════
+   3 jeux A / B / C par mode, mots finaux différents (BLACKOUT / OVERRIDE / SHUTDOWN).
+   Le jeu actif se choisit à l'accueil (doit correspondre aux FEUILLES IMPRIMÉES).
+   Mécaniques identiques ; seules les réponses et le mot final changent.
+   NB EXPERT : le verrou 02 (épreuves web QR) garde le code 4271 dans les 3 jeux
+   (la page d'épreuves n'est pas dupliquée) ; seul son fragment change. */
+const H = {
+  cesarStd:[
+    "Décalez chaque lettre en arrière selon la clé indiquée dans le dossier.",
+    "Servez-vous de la table de déchiffrement (ligne du bas) du dossier.",
+    "Déchiffrez toute la phrase : le dernier mot est le mot de passe."],
+  triStd:[
+    "Quatre QR sont cachés dans la zone. Trouvez-les tous.",
+    "Chaque QR donne une POSITION (1 à 4) et un CHIFFRE.",
+    "Rangez les chiffres selon leur position pour former la fréquence."],
+  acro:[
+    "Regardez les journaux du dossier, ligne par ligne.",
+    "Ne gardez que la PREMIÈRE lettre de chaque ligne.",
+    "Assemblez ces premières lettres de haut en bas : c'est le nom du serveur."],
+  leetStd:[
+    "Chaque lettre du mot a un chiffre équivalent dans la table leet.",
+    "Repérez dans la table la valeur de chaque lettre du mot.",
+    "Convertissez chaque lettre en son chiffre, dans l'ordre."],
+  cesarExp:[
+    "Le décalage = le nombre de lettres du nom du collectif (GHOST).",
+    "Décalez de 5 crans en arrière : vous obtenez une INSTRUCTION, pas le code.",
+    "Exécutez l'instruction obtenue (un mot à écrire à l'envers) pour trouver le code."],
+  triExp:[
+    "Scannez les 4 QR : chacun ouvre une épreuve (binaire, XOR…) à résoudre.",
+    "Chaque épreuve résolue révèle un chiffre et sa POSITION dans la fréquence.",
+    "Les quatre chiffres, rangés par position, forment la fréquence."],
+  serv:[
+    "Procédez par élimination avec les trois indices.",
+    "Écartez d'abord le serveur le moins sollicité, puis filtrez par le port.",
+    "Un seul serveur satisfait les trois indices : lisez son nom."],
+  coffre:[
+    "Chaque circuit cache un petit calcul : résolvez-les tous d'abord.",
+    "Ne lisez pas les résultats de haut en bas : suivez l'ordre d'exécution (1 à 4).",
+    "Quatre chiffres, dans l'ordre d'exécution, forment le code du cadenas."],
+  polybe:[
+    "Le tableau est un carré de Polybe : chaque PAIRE de chiffres désigne une case.",
+    "Premier chiffre = la ligne, second = la colonne (I et J partagent une case).",
+    "Décodez paire par paire : vous obtenez un mot de 7 lettres, votre code."],
+  leetExp:[
+    "Décodez la phrase leet (chiffres → lettres) : c'est une consigne.",
+    "La consigne est une opération mathématique à effectuer.",
+    "Effectuez le calcul demandé : le résultat à 4 chiffres ouvre le noyau."]
+};
+const DEF = {
+  std:[
+    {title:"Transmission interceptée", hints:H.cesarStd,
+     instr:"Dossier <b>01</b> — déchiffrez la transmission interceptée (chiffre de César). Saisissez le mot de passe trouvé."},
+    {title:"Triangulation du signal", hints:H.triStd,
+     instr:"Dossier <b>02</b> — quatre QR codes sont cachés dans la salle. Scannez-les, lisez position + chiffre, reconstituez la fréquence à 4 chiffres."},
+    {title:"Serveur secondaire", hints:H.acro,
+     instr:"Dossier <b>03</b> — le nom de code du serveur est masqué dans les journaux. Lisez les processus de haut en bas."},
+    {title:"Pare-feu final", hints:H.leetStd,
+     instr:"Dossier <b>04</b> — traduisez le mot indiqué avec la table leet du dossier."}
+  ],
+  exp:[
+    {title:"Transmission cryptée", hints:H.cesarExp,
+     instr:"Dossier <b>01</b> — César dont la <b>clé n'est pas donnée</b>. Trouvez le décalage, déchiffrez l'instruction, puis exécutez-la pour obtenir le code."},
+    {title:"Triangulation distante", hints:H.triExp,
+     instr:"Dossier <b>02</b> — quatre QR-nœuds cachés ouvrent des <b>épreuves en ligne</b>. Résolvez chacune pour extraire un chiffre et sa position, puis reconstituez la fréquence."},
+    {title:"Serveur fantôme", hints:H.serv,
+     instr:"Dossier <b>03</b> — identifiez le serveur cible par <b>déduction</b>. Croisez la table des 4 serveurs avec les 3 indices."},
+    {title:"Protocole d'armement", hints:H.coffre, vault:true,
+     success:"✓ CADENAS DÉSACTIVÉ — ouvrez le coffre et récupérez le dossier scellé à l'intérieur.",
+     instr:"Dossier <b>04</b> — résolvez les quatre circuits pour obtenir le <b>code du cadenas</b> qui ouvre le coffre. Le dossier suivant est enfermé à l'intérieur."},
+    {title:"Message gravé", hints:H.polybe,
+     instr:"Dossier <b>05</b> (trouvé dans le coffre) — décodez le message gravé à l'aide du <b>carré de Polybe</b>."},
+    {title:"Pare-feu du noyau", hints:H.leetExp,
+     instr:"Dossier <b>06</b> — décodez la phrase en <b>leet</b>, puis exécutez la consigne mathématique pour obtenir le code à 4 chiffres."}
+  ]
+};
+function mkMissions(defs, codes, frags){
+  return defs.map((d,i)=>Object.assign({}, d, { code:codes[i], fragment:frags[i] }));
+}
+function mkFinal(mode, code){
+  return { code:code, title:"Protocole "+code,
+    instr:"Dossier "+(mode==='expert'?'<b>07</b>':'<b>05</b>')+" — assemblez les <b>"+(mode==='expert'?6:4)+" fragments</b> dans l'ordre des verrous, puis lancez la commande maître." };
+}
 const SETS = {
-  /* ---------- MODE STANDARD (4 verrous) ---------- */
   standard: {
     durationSec: 60*60,
     relay: { enabled:true, variant:'routage', cables:4 },
-    missions: [
-      { code:"NEXUS", fragment:"BLA", title:"Transmission interceptée",
-        instr:"Dossier <b>01</b> — déchiffrez la transmission interceptée (chiffre de César). Saisissez le mot de passe trouvé.",
-        hints:[
-          "Le décalage est de +4 : pour décoder, RECULEZ chaque lettre de 4 crans.",
-          "La ligne du bas (cyan) de la table du dossier 01 donne la vraie lettre.",
-          "Déchiffrez la phrase entière : le DERNIER mot est le mot de passe à saisir."
-        ] },
-      { code:"4271", fragment:"CK", title:"Triangulation du signal",
-        instr:"Dossier <b>02</b> — quatre QR codes sont cachés dans la salle. Scannez-les, lisez position + chiffre, reconstituez la fréquence à 4 chiffres.",
-        hints:[
-          "Quatre QR codes sont dissimulés. Éclatez-vous dans la zone.",
-          "Chaque QR donne une POSITION (1 à 4) et un CHIFFRE.",
-          "Rangez les quatre chiffres selon leur numéro de position pour former la fréquence."
-        ] },
-      { code:"OMEGA", fragment:"OU", title:"Serveur secondaire",
-        instr:"Dossier <b>03</b> — le nom de code du serveur est masqué dans les journaux. Lisez les processus de haut en bas.",
-        hints:[
-          "Concentrez-vous sur les journaux du dossier 03, ligne par ligne.",
-          "Ne gardez que la PREMIÈRE lettre de chaque processus.",
-          "Assemblez ces premières lettres de haut en bas : elles forment le nom du serveur."
-        ] },
-      { code:"1337", fragment:"T", title:"Pare-feu final",
-        instr:"Dossier <b>04</b> — traduisez le mot « LEET » avec la table leet du dossier.",
-        hints:[
-          "Table leet : chaque lettre correspond à un chiffre.",
-          "Repérez dans la table la valeur de L, de E et de T.",
-          "Convertissez chaque lettre du mot LEET en son chiffre, dans l'ordre."
-        ] },
-    ],
-    final: { code:"BLACKOUT", title:"Protocole BLACKOUT",
-      instr:"Dossier <b>05</b> — assemblez les <b>4 fragments</b> dans l'ordre des verrous, puis lancez la commande maître." }
+    variants: {
+      A: { label:"A · BLACKOUT", missions:mkMissions(DEF.std, ["NEXUS","4271","OMEGA","1337"], ["BL","AC","KO","UT"]), final:mkFinal('standard',"BLACKOUT") },
+      B: { label:"B · OVERRIDE", missions:mkMissions(DEF.std, ["VIRUS","5836","DELTA","8055"], ["OV","ER","RI","DE"]), final:mkFinal('standard',"OVERRIDE") },
+      C: { label:"C · SHUTDOWN", missions:mkMissions(DEF.std, ["TROJAN","7194","SIGMA","8105"], ["SH","UT","DO","WN"]), final:mkFinal('standard',"SHUTDOWN") }
+    }
   },
-
-  /* ---------- MODE EXPERT (6 verrous + coffre) ---------- */
   expert: {
     durationSec: 60*60,
     relay: { enabled:true, variant:'wirebox', pairs:6 },
     breach: { enabled:true, size:5, bufferSize:8, seqLens:[4,3], seqLabels:["OVERRIDE_ORACLE","PURGE_TRACE"], timerSec:30, alphabet:["1C","55","BD","E9","7A","FF"] },
-    missions: [
-      { code:"ELCARO", fragment:"B", title:"Transmission cryptée",
-        instr:"Dossier <b>01</b> — César dont la <b>clé n'est pas donnée</b>. Trouvez le décalage, déchiffrez l'instruction, puis exécutez-la pour obtenir le code.",
-        hints:[
-          "Le décalage de César = le nombre de lettres du nom de votre collectif (GHOST).",
-          "Décalez de 5 crans en arrière. La phrase obtenue est une INSTRUCTION, pas le code.",
-          "Une fois la phrase lue, appliquez-la au nom de l'IA que vous combattez."
-        ] },
-      { code:"4271", fragment:"LA", title:"Triangulation distante",
-        instr:"Dossier <b>02</b> — quatre QR-nœuds cachés ouvrent des <b>épreuves en ligne</b>. Résolvez chacune pour extraire un chiffre et sa position, puis reconstituez la fréquence.",
-        hints:[
-          "Scannez les 4 QR : chacun ouvre une épreuve (binaire, XOR…) à résoudre.",
-          "Chaque épreuve résolue révèle un chiffre et sa POSITION dans la fréquence.",
-          "Aucun nœud n'est optionnel : sans les quatre chiffres la fréquence reste incomplète. Vérifiez l'ordre des positions."
-        ] },
-      { code:"OMEGA", fragment:"C", title:"Serveur fantôme",
-        instr:"Dossier <b>03</b> — identifiez le serveur cible par <b>déduction</b>. Croisez la table des 4 serveurs avec les 3 indices.",
-        hints:[
-          "Procédez par élimination, indice après indice.",
-          "On écarte d'abord le serveur le moins sollicité ; puis filtrez par le port.",
-          "Après les deux premiers filtres, un seul candidat dépasse 80% de charge : lisez son nom dans la colonne de gauche."
-        ] },
-      { code:"2780", fragment:"K", title:"Protocole d'armement", vault:true,
-        success:"✓ CADENAS DÉSACTIVÉ — ouvrez le coffre et récupérez le dossier scellé à l'intérieur.",
-        instr:"Dossier <b>04</b> — résolvez les quatre circuits pour obtenir le <b>code du cadenas</b> qui ouvre le coffre. Le dossier suivant est enfermé à l'intérieur.",
-        hints:[
-          "Chaque circuit cache un petit calcul : résolvez-les tous d'abord.",
-          "Ne lisez pas les résultats de haut en bas : suivez l'ordre d'exécution (1 à 4).",
-          "Quatre chiffres, dans l'ordre d'exécution, forment le code. Recomptez vos calculs si le coffre résiste."
-        ] },
-      { code:"SPECTRE", fragment:"OU", title:"Message gravé",
-        instr:"Dossier <b>05</b> (trouvé dans le coffre) — décodez le message gravé à l'aide du <b>carré de Polybe</b>.",
-        hints:[
-          "Le tableau est un carré de Polybe : chaque PAIRE de chiffres désigne une case.",
-          "Premier chiffre = la ligne, second = la colonne (I et J partagent une case).",
-          "Décodez paire par paire : vous obtiendrez un mot de 7 lettres, votre code."
-        ] },
-      { code:"4011", fragment:"T", title:"Pare-feu du noyau",
-        instr:"Dossier <b>06</b> — décodez la phrase en <b>leet</b>, puis exécutez la consigne mathématique pour obtenir le code à 4 chiffres.",
-        hints:[
-          "Décodez la phrase leet (chiffres → lettres) : c'est une consigne.",
-          "La consigne est une opération à effectuer sur le nombre 1337.",
-          "Effectuez la multiplication demandée : le résultat à 4 chiffres ouvre le noyau."
-        ] },
-    ],
-    final: { code:"BLACKOUT", title:"Protocole BLACKOUT",
-      instr:"Dossier <b>07</b> — assemblez les <b>6 fragments</b> dans l'ordre des verrous, puis lancez la commande maître." }
+    variants: {
+      A: { label:"A · BLACKOUT", missions:mkMissions(DEF.exp, ["ELCARO","4271","OMEGA","2780","SPECTRE","4011"], ["B","LA","C","K","OU","T"]), final:mkFinal('expert',"BLACKOUT") },
+      B: { label:"B · OVERRIDE", missions:mkMissions(DEF.exp, ["METSYS","4271","DELTA","5319","NEMESIS","4444"], ["O","VE","R","R","ID","E"]), final:mkFinal('expert',"OVERRIDE") },
+      C: { label:"C · SHUTDOWN", missions:mkMissions(DEF.exp, ["SSECCA","4271","SIGMA","6402","CERBERE","6051"], ["S","HU","T","D","OW","N"]), final:mkFinal('expert',"SHUTDOWN") }
+    }
   }
 };
-
-let MISSIONS = SETS.standard.missions;   // set actif (défini au démarrage)
-let FINAL    = SETS.standard.final;
+let ACTIVE_VARIANT = "A";
+let MISSIONS = SETS.standard.variants.A.missions;
+let FINAL    = SETS.standard.variants.A.final;
 let DURATION = SETS.standard.durationSec;
 
 /* ===================== ÉTAT ===================== */
@@ -2946,7 +2963,7 @@ window.FIREBASE = FIREBASE;
    - ADMIN_EMAIL : l'email du compte admin créé dans Firebase Authentication.
    - ADMIN_PASS  : sert UNIQUEMENT de repli en mode LOCAL (hors ligne). En ligne, c'est
      le mot de passe du compte Firebase qui compte, vérifié côté serveur. */
-const ADMIN_EMAIL = "admin@cyberfun.fr";
+const ADMIN_EMAIL = "cyberfunwar@gmail.com";
 const ADMIN_PASS  = "ORACLE";
 window.ADMIN_EMAIL = ADMIN_EMAIL;
 /* Repli : pas d'auth en ligne tant que le module Firebase n'a pas chargé. */
@@ -2975,7 +2992,8 @@ function initState(){
 }
 
 /* ===================== SON ===================== */
-const _sfxCache={};
+const _sfxCache={}; let _sfxPlaying=[];
+function stopAllSfx(){ _sfxPlaying.forEach(a=>{try{a.pause();a.currentTime=0;}catch(e){}}); _sfxPlaying=[]; }
 function sfxBase(){ const p=location.pathname.replace(/[^/]*$/,''); return (location.origin==='null'?'':location.origin)+p; }
 function sfx(name, fallback){
   if(!CONFIG.sound){ return; }
@@ -2985,8 +3003,10 @@ function sfx(name, fallback){
       if(!_sfxCache[name]){ const a=new Audio(sfxBase()+file); a.preload='auto'; _sfxCache[name]=a; }
       const el=_sfxCache[name].cloneNode();
       el.volume=(CONFIG.sfxVolume!=null?CONFIG.sfxVolume:0.85);
+      _sfxPlaying.push(el);
+      el.addEventListener('ended',()=>{ const i=_sfxPlaying.indexOf(el); if(i>=0)_sfxPlaying.splice(i,1); });
       const pr=el.play();
-      if(pr&&pr.catch) pr.catch(()=>{ if(fallback) fallback(); });
+      if(pr&&pr.catch) pr.catch(()=>{ const i=_sfxPlaying.indexOf(el); if(i>=0)_sfxPlaying.splice(i,1); if(fallback) fallback(); });
       return;
     }catch(e){ /* tombe sur le fallback */ }
   }
@@ -3075,9 +3095,11 @@ function startLivePublish(){
 }
 function stopLivePublish(){ clearInterval(liveInt); liveInt=null; }
 
+function setVariant(v){ if(v==="A"||v==="B"||v==="C") ACTIVE_VARIANT=v; }
 function startGame(mode){
   mode = (mode==="expert")?"expert":"standard";
-  MISSIONS = SETS[mode].missions; FINAL = SETS[mode].final;
+  const V = (SETS[mode].variants && SETS[mode].variants[ACTIVE_VARIANT]) ? ACTIVE_VARIANT : "A";
+  MISSIONS = SETS[mode].variants[V].missions; FINAL = SETS[mode].variants[V].final;
   DURATION = SETS[mode].durationSec || CONFIG.durationSec;
   state_mode = mode;
   initState();
@@ -3314,12 +3336,21 @@ async function confirmClear(){
     if(m){ m.className='msgline'; m.textContent='Authentification\u2026'; }
     try{
       await window.ADMIN_AUTH.login(val);           // échoue si mauvais mot de passe / compte absent
-    }catch(e){ badPass(); return; }
+    }catch(e){
+      const code=(e&&(e.code||e.message))||'';
+      console.warn('[ADMIN login]', e);
+      if(m){ m.className='msgline err';
+        m.textContent = (/password|credential|user-not-found|invalid-email/i.test(code))
+          ? '\u2715 Email admin ou mot de passe incorrect.'
+          : '\u2715 Auth échouée : '+code; }
+      if(i){ i.classList.add('shake'); setTimeout(()=>i.classList.remove('shake'),400); i.select(); }
+      beep(160,0.18,'sawtooth'); return;
+    }
     if(m){ m.textContent='Suppression\u2026'; }
-    let okDel=true;
-    try{ await window.LB.reset(); }catch(e){ okDel=false; }
+    let delErr=null;
+    try{ await window.LB.reset(); }catch(e){ delErr=(e&&(e.code||e.message))||'refus'; console.warn('[ADMIN delete]', e); }
     try{ await window.ADMIN_AUTH.logout(); }catch(e){}
-    if(!okDel){ if(m){ m.className='msgline err'; m.textContent='\u2715 Suppression refusée par le serveur (règle Firestore ?).'; } return; }
+    if(delErr){ if(m){ m.className='msgline err'; m.textContent='\u2715 Suppression refusée : '+delErr+' (règle Firestore ?)'; } return; }
     const d=document.getElementById('adminclear'); if(d) d.classList.remove('open');
     showRanking(); return;
   }
@@ -3369,7 +3400,7 @@ function continueAnyway(){
   log('<span class="a">[RÉGIE]</span> mode libre activé — chrono en pause.');
   document.getElementById('rpause').textContent='▶ Reprendre le chrono';
 }
-function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); GAME_ID=null; regieUnlocked=false; toggleRegie(false); initState(); show('intro'); }
+function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); stopAllSfx(); GAME_ID=null; regieUnlocked=false; toggleRegie(false); initState(); show('intro'); }
 
 /* ===================== RELAIS — ÉTABLIR LA CONNEXION ===================== */
 let RELAY_SESSION=null, relayUnsub=null, relayDone=false;
@@ -3517,8 +3548,9 @@ function breachFail(){
   clearInterval(breachInt); if(BR) BR.failed=true;
   renderBreach();
   const msg=document.getElementById('bmsg');
-  if(msg){ msg.className='msgline err'; msg.textContent='⏱ DÉLAI DÉPASSÉ — le noyau se reverrouille. Réinitialisez le hack.'; }
+  if(msg){ msg.className='msgline err'; msg.textContent='⏱ DÉLAI DÉPASSÉ — réinitialisation complète du noyau…'; }
   sfx('alert', ()=>beep(120,0.4,'sawtooth'));
+  setTimeout(()=>{ if(BR && BR.failed) resetBreach(); }, 1600);   // reset entier (nouvelle grille + chrono)
 }
 function cellPlayable(r,c){
   if(!BR || BR.solved || BR.failed) return false;
@@ -3589,10 +3621,10 @@ function pickCell(r,c){
 function resetBreach(){
   if(!BR) return;
   clearInterval(breachInt);
-  BR.buffer=[]; BR.vis=new Set(); BR.axis='row'; BR.last=null; BR.solved=false; BR.failed=false;
-  BR.timerMs=BR.timerTotal;
-  BR.seqs.forEach(s=>s.done=false);
-  const msg=document.getElementById('bmsg'); msg.textContent=''; msg.className='msgline';
+  const cfg=SETS[state_mode].breach;
+  BR=genBreach(cfg);                                   // nouvelle grille + nouvelles séquences
+  BR.timerTotal=(cfg.timerSec||30)*1000; BR.timerMs=BR.timerTotal; BR.failed=false; BR.solved=false;
+  const msg=document.getElementById('bmsg'); if(msg){ msg.textContent=''; msg.className='msgline'; }
   renderBreach(); startBreachTimer(); beep(440,0.08);
 }
 
@@ -3604,6 +3636,17 @@ function renderRegieGate(){
   lock.style.display = regieUnlocked?'none':'block';
   ctrl.classList.toggle('on', regieUnlocked);
   if(!regieUnlocked){ const i=document.getElementById('regiepass'); if(i){ i.value=''; setTimeout(()=>i.focus(),60); } }
+  const rc=document.getElementById('regiecodes');
+  if(rc && regieUnlocked){
+    try{
+      const vv=(SETS[state_mode]&&SETS[state_mode].variants&&SETS[state_mode].variants[ACTIVE_VARIANT])?ACTIVE_VARIANT:'A';
+      const ms=SETS[state_mode].variants[vv].missions, fn=SETS[state_mode].variants[vv].final;
+      let txt='JEU '+vv+' · MODE '+(state_mode==='expert'?'EXPERT':'STANDARD')+'<br>';
+      txt+=ms.map((m,i)=>'0'+(i+1)+' '+m.code).join(' · ');
+      txt+=' · FINAL '+fn.code;
+      rc.innerHTML=txt;
+    }catch(e){ rc.textContent='(démarrez une partie pour voir les codes)'; }
+  } else if(rc){ rc.textContent='(déverrouillez puis démarrez une partie)'; }
 }
 function toggleRegie(force){
   const r=document.getElementById('regie');
