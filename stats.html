@@ -66,8 +66,8 @@
 
   /* ---- Habillage (œil ORACLE + fond) ---- */
   #bgfx{position:fixed;inset:0;width:100%;height:100%;z-index:0;opacity:.12;pointer-events:none}
-  .oracle-eye{display:inline-block;--eye:46px;line-height:0}
-  .oracle-eye svg{width:var(--eye);height:var(--eye);display:block;overflow:visible}
+  .oracle-eye{display:inline-block;--eye:118px;line-height:0}
+  .oracle-eye svg{width:var(--eye);height:var(--eye);display:block;margin:0 auto;overflow:visible}
   .oracle-eye .er{fill:none;stroke:var(--cyan-d);stroke-width:1.4;opacity:.6}
   .oracle-eye .er1{stroke-dasharray:7 11;animation:eyespin 16s linear infinite;transform-origin:50% 50%}
   .oracle-eye .er2{stroke-dasharray:3 8;animation:eyespin 10s linear infinite reverse;transform-origin:50% 50%}
@@ -79,7 +79,7 @@
   @keyframes eyespin{to{transform:rotate(360deg)}}
   @keyframes irispulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
   @keyframes eyescan{0%,100%{transform:translateY(-13px);opacity:0}50%{transform:translateY(13px);opacity:.55}}
-  .cflogo{display:block;max-height:46px;max-width:180px;opacity:.85;margin:14px auto 0}
+  .cflogo{display:block;max-height:58px;max-width:220px;opacity:.9;margin:18px auto 0;filter:drop-shadow(0 0 10px rgba(0,229,255,.2))}
 </style>
 </head>
 <body>
@@ -91,7 +91,6 @@
       <div class="logo"><span class="g">GHOST</span>:// <span style="font-size:.6em;color:var(--grey)">statistiques</span></div>
       <div class="sub">PROTOCOLE&nbsp;&nbsp;B L A C K O U T</div>
     </div>
-    <div class="oracle-eye" style="--eye:54px"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg></div>
     <div class="filters" id="filters">
       <button class="fbtn on" data-m="all" onclick="setFilter('all')">TOUS</button>
       <button class="fbtn" data-m="famille" onclick="setFilter('famille')">FAMILLE</button>
@@ -99,6 +98,7 @@
       <button class="fbtn" data-m="expert" onclick="setFilter('expert')">EXPERT</button>
     </div>
   </header>
+  <div class="oracle-eye" style="display:block;margin:2px auto 22px"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg></div>
   <div id="body"></div>
   <div id="status" class="status">connexion au réseau…</div>
   <img class="cflogo" src="img/cyberfun-logo.png" alt="" onerror="this.style.display=&#39;none&#39;">

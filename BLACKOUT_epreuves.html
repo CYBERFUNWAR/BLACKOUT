@@ -87,8 +87,8 @@
 
   /* ---- Habillage (œil ORACLE + fond) ---- */
   #bgfx{position:fixed;inset:0;width:100%;height:100%;z-index:0;opacity:.12;pointer-events:none}
-  .oracle-eye{display:inline-block;--eye:46px;line-height:0}
-  .oracle-eye svg{width:var(--eye);height:var(--eye);display:block;overflow:visible}
+  .oracle-eye{display:inline-block;--eye:118px;line-height:0}
+  .oracle-eye svg{width:var(--eye);height:var(--eye);display:block;margin:0 auto;overflow:visible}
   .oracle-eye .er{fill:none;stroke:var(--cyan-d);stroke-width:1.4;opacity:.6}
   .oracle-eye .er1{stroke-dasharray:7 11;animation:eyespin 16s linear infinite;transform-origin:50% 50%}
   .oracle-eye .er2{stroke-dasharray:3 8;animation:eyespin 10s linear infinite reverse;transform-origin:50% 50%}
@@ -100,7 +100,7 @@
   @keyframes eyespin{to{transform:rotate(360deg)}}
   @keyframes irispulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
   @keyframes eyescan{0%,100%{transform:translateY(-13px);opacity:0}50%{transform:translateY(13px);opacity:.55}}
-  .cflogo{display:block;max-height:46px;max-width:180px;opacity:.85;margin:14px auto 0}
+  .cflogo{display:block;max-height:58px;max-width:220px;opacity:.9;margin:18px auto 0;filter:drop-shadow(0 0 10px rgba(0,229,255,.2))}
 </style>
 </head>
 <body>
@@ -109,7 +109,7 @@
 <div class="wrap">
   <div class="logo noprint"><span class="g">GHOST</span>:// <span style="color:var(--grey);font-size:12px">accès distant</span></div>
   <div class="brand noprint">PROTOCOLE&nbsp;&nbsp;B L A C K O U T&nbsp;&nbsp;//&nbsp;&nbsp;NŒUDS-RELAIS</div>
-  <div class="oracle-eye noprint" style="--eye:52px;display:block;margin:10px auto 2px"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg></div>
+  <div class="oracle-eye noprint" style="display:block;margin:12px auto 6px"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg></div>
   <div id="view"></div>
   <div class="foot noprint">CYBER FUN — Escape game cyberpunk · nœud-relais sécurisé</div>
 </div>
