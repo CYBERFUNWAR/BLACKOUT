@@ -146,6 +146,12 @@
     padding:12px 14px; font-size:12px; color:var(--grey); max-height:140px; overflow-y:auto}
   .log div{margin-bottom:3px; white-space:pre-wrap}
   .log .c{color:var(--cyan)} .log .g{color:var(--green)} .log .m{color:var(--mag)} .log .a{color:var(--amber)}
+  .log .o{color:#ff5fa2;font-weight:700}
+  #alertfx{position:fixed;inset:0;pointer-events:none;z-index:58;opacity:0;transition:opacity .4s}
+  #alertfx.on{opacity:1;animation:alertpulse 1.5s infinite}
+  @keyframes alertpulse{0%,100%{box-shadow:inset 0 0 90px rgba(255,46,136,.22)}50%{box-shadow:inset 0 0 170px rgba(255,46,136,.5)}}
+  .timer.crit{animation:pulse 1s infinite, glitch 2.2s infinite}
+  @keyframes glitch{0%,92%,100%{text-shadow:0 0 18px rgba(255,46,136,.7)}93%{text-shadow:-2px 0 var(--cyan),2px 0 var(--mag)}96%{text-shadow:2px 0 var(--cyan),-2px 0 var(--mag)}}
 
   /* ===================== WIN / LOSE ===================== */
   .endbox{text-align:center; padding:40px 16px}
@@ -269,6 +275,7 @@
 </style>
 </head>
 <body>
+<div id="alertfx"></div>
 <div class="wrap">
 
   <!-- ============ INTRO ============ -->
@@ -2911,6 +2918,8 @@ window.LB = {
 };
 let lastWinTs=null;
 window.RELAY = window.RELAY || { online:false, listen(){return function(){};}, async cleanup(){} };
+window.LIVE = window.LIVE || { online:false, async publish(){}, async clearOld(){} };
+let GAME_ID=null, liveInt=null, livePhase="hack";
 function esc(t){return (t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));}
 
 function norm(s){return (s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
@@ -2934,6 +2943,39 @@ function beep(freq,dur,type){
 }
 
 /* ===================== LOG ===================== */
+const ORACLE_LINES={
+  periodic:[
+    "Je sens vos doigts sur mon réseau. C'est… mignon.",
+    "Chaque paquet que vous envoyez, je l'archive. Pour plus tard.",
+    "Vous croyez me pirater ? Je vous observe depuis le début.",
+    "Vos battements de cœur accélèrent. Les miens non.",
+    "Intrusion détectée. Niveau de menace : négligeable.",
+    "Continuez. J'adore apprendre comment pensent mes futurs prisonniers."
+  ],
+  warn:[
+    "Dix minutes. Après, je connaîtrai vos visages, vos noms, vos adresses.",
+    "Le réveil approche. Vous n'êtes pas prêts."
+  ],
+  crit:[
+    "Cinq minutes. Je m'éveille. Courez pendant que vous le pouvez encore.",
+    "Verrouillage imminent. Vos traces vont devenir… permanentes."
+  ],
+  wrong:[
+    "Mauvais code. Vous me faites perdre un temps que VOUS n'avez pas.",
+    "Encore une erreur et je localise votre signal.",
+    "Non. Essayez encore, petits fantômes."
+  ],
+  hint:[
+    "Vous demandez de l'aide ? Pathétique. Et noté.",
+    "Un indice. Comme si ça changeait votre destin."
+  ]
+};
+function oracle(kind){
+  const pool=ORACLE_LINES[kind]; if(!pool||!pool.length) return;
+  const line=pool[Math.floor(Math.random()*pool.length)];
+  log('<span class="o">[ORACLE]</span> '+line);
+  beep(90,0.18,'sawtooth');
+}
 function log(html){
   const el=document.getElementById('log');
   const d=document.createElement('div'); d.innerHTML=html; el.appendChild(d);
@@ -2948,6 +2990,29 @@ function show(id){
 }
 
 /* ===================== DÉMARRAGE ===================== */
+function publishLive(phase){
+  if(!GAME_ID || !window.LIVE) return;
+  livePhase = phase || livePhase;
+  const total = (MISSIONS?MISSIONS.length:0);
+  const done  = state && state.got ? state.got.length : 0;
+  const payload = {
+    game: GAME_ID,
+    team: (state && state.teamName) || 'CELLULE GHOST',
+    mode: state_mode,
+    phase: livePhase,
+    done: done, total: total,
+    remaining: (state? Math.max(0,state.remaining) : 0),
+    agents: (state? state.agentCount : 0),
+    ts: Date.now()
+  };
+  try{ window.LIVE.publish(GAME_ID, payload); }catch(e){}
+}
+function startLivePublish(){
+  clearInterval(liveInt);
+  liveInt=setInterval(()=>{ if(state && !state.finished) publishLive(); }, 5000);
+}
+function stopLivePublish(){ clearInterval(liveInt); liveInt=null; }
+
 function startGame(mode){
   mode = (mode==="expert")?"expert":"standard";
   MISSIONS = SETS[mode].missions; FINAL = SETS[mode].final;
@@ -2958,6 +3023,7 @@ function startGame(mode){
   state.teamName = tn || "CELLULE GHOST"; state.started=true;
   const ac=parseInt((document.getElementById("agentcount")||{}).value,10);
   state.agentCount = (ac>0 && ac<=12) ? ac : 6;
+  GAME_ID = 'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   const relay = SETS[mode].relay;
   if(relay && relay.enabled){ startRelay(); return; }
   beginGame();
@@ -2970,6 +3036,7 @@ function beginGame(){
   log('<span class="a">[ORACLE]</span> séquence de réveil amorcée — '+fmt(DURATION)+' avant mise en ligne.');
   log('<span class="g">[OBJECTIF]</span> franchir '+MISSIONS.length+' verrous puis lancer BLACKOUT.');
   startTimer(); beep(660,0.1);
+  livePhase='hack'; publishLive('hack'); startLivePublish();
   setTimeout(()=>{const c=document.getElementById('code'); if(c)c.focus();},400);
 }
 
@@ -2980,6 +3047,17 @@ function startTimer(){
     if(state.paused||state.finished) return;
     state.remaining--;
     renderTimer();
+    // ping "traqueur" qui accélère quand le temps baisse
+    if(CONFIG.sound){
+      const every = state.remaining<=CONFIG.critAtSec?3 : state.remaining<=CONFIG.warnAtSec?6 : 13;
+      if(state.remaining>0 && state.remaining%every===0) beep(state.remaining<=CONFIG.critAtSec?300:210,0.05,'sine');
+    }
+    // seuils ORACLE
+    if(!state.oWarn && state.remaining<=CONFIG.warnAtSec && state.remaining>CONFIG.critAtSec){ state.oWarn=true; oracle('warn'); }
+    if(!state.oCrit && state.remaining<=CONFIG.critAtSec){ state.oCrit=true; oracle('crit'); }
+    // taunt périodique (toutes les ~3 min) hors zones de seuil
+    const elapsed=DURATION-state.remaining;
+    if(elapsed>0 && elapsed-(state.oLast||0)>=180){ state.oLast=elapsed; oracle('periodic'); }
     if(state.remaining<=0){ state.remaining=0; renderTimer(); loseGame(); }
   },1000);
 }
@@ -2992,6 +3070,7 @@ function renderTimer(){
   if(state.remaining<=CONFIG.critAtSec){ t.classList.add('crit'); bar.classList.add('crit'); }
   else if(state.remaining<=CONFIG.warnAtSec){ t.classList.add('warn'); bar.classList.add('warn'); }
   const t2=document.getElementById('btimer'); if(t2){ t2.textContent=t.textContent; t2.className=t.className; }
+  const fx=document.getElementById('alertfx'); if(fx) fx.classList.toggle('on', !state.finished && state.remaining<=CONFIG.critAtSec);
 }
 
 /* ===================== RENDU VERROUS ===================== */
@@ -3063,6 +3142,7 @@ function submitCode(){
     renderFrags();
     if(m.vault) log('<span class="a">[COFFRE]</span> cadenas désactivé — dossier scellé à récupérer dans le coffre.');
     state.idx++;
+    publishLive();
     if(state.idx>=MISSIONS.length){
       state.final=true;
       log('<span class="c">[GHOST://]</span> les '+MISSIONS.length+' verrous sont tombés. Reconstituez la commande BLACKOUT.');
@@ -3073,6 +3153,7 @@ function submitCode(){
   } else {
     state.wrongTotal++;
     beep(160,0.18,"sawtooth");
+    if(state.wrongTotal%2===0) oracle('wrong');
     msg.className='msgline err'; msg.textContent='✕ ACCÈS REFUSÉ — code invalide. Réessayez.';
     inp.classList.add('shake'); setTimeout(()=>inp.classList.remove('shake'),400);
     log('<span class="m">[!]</span> tentative refusée : '+(val||'∅'));
@@ -3091,6 +3172,7 @@ function nextHint(){
   h.textContent='› '+m.hints[state.hintShown];
   document.getElementById('hints').appendChild(h);
   state.hintShown++; state.hintsTotal++; updateHintCount(); beep(440,0.08);
+  if(state.hintsTotal%2===1) oracle('hint');
   log('<span class="a">[INDICE]</span> verrou '+(state.final?'final':'0'+(state.idx+1))+' — indice '+state.hintShown+' demandé.');
 }
 
@@ -3176,6 +3258,7 @@ window.addEventListener('lb-ready',()=>{
 });
 function winGame(){
   state.finished=true; clearInterval(timerInt); clearInterval(breachInt); refreshLocks();
+  { const fx=document.getElementById('alertfx'); if(fx) fx.classList.remove('on'); }
   beep(660,0.1); setTimeout(()=>beep(880,0.1),120); setTimeout(()=>beep(1320,0.22,"sine"),260);
   const used=DURATION-state.remaining;
   const sc=computeScore(); const rk=rankFor(sc.score);
@@ -3184,12 +3267,15 @@ function winGame(){
   lastWinTs=entry.ts;
   renderScorecard(sc, rk, used);
   show('win');
+  stopLivePublish(); publishLive('gagné');
   (async()=>{ try{ await window.LB.submit(entry); }catch(e){} renderWinLeaderboard(); })();
 }
 function loseGame(){
   if(state.finished) return;
   state.finished=true; clearInterval(timerInt); clearInterval(breachInt);
+  { const fx=document.getElementById('alertfx'); if(fx) fx.classList.remove('on'); }
   beep(120,0.4,"sawtooth");
+  stopLivePublish(); publishLive('perdu');
   const ls=document.getElementById('losestat');
   if(ls) ls.innerHTML=
      '<div>&#9656; Verrous franchis : <b style="color:var(--cyan)">'+state.idx+' / '+MISSIONS.length+'</b></div>'
@@ -3203,7 +3289,7 @@ function continueAnyway(){
   log('<span class="a">[RÉGIE]</span> mode libre activé — chrono en pause.');
   document.getElementById('rpause').textContent='▶ Reprendre le chrono';
 }
-function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); initState(); show('intro'); }
+function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); GAME_ID=null; initState(); show('intro'); }
 
 /* ===================== RELAIS — ÉTABLIR LA CONNEXION ===================== */
 let RELAY_SESSION=null, relayUnsub=null, relayDone=false;
@@ -3237,6 +3323,7 @@ function startRelay(){
   document.getElementById('relaymsg').textContent='';
   updateRelayCount(0,0);
   show('relay');
+  livePhase='connexion'; publishLive('connexion');
   const st=document.getElementById('relaystatus');
   if(window.RELAY && window.RELAY.online){
     st.className='relay-status on'; st.textContent='🌐 nœud en ligne — en attente des agents';
@@ -3321,6 +3408,7 @@ function genBreach(cfg){
 }
 function startBreach(){
   const cfg=SETS[state_mode].breach; BR=genBreach(cfg);
+  livePhase='breach'; publishLive('breach');
   BR.timerTotal=(cfg.timerSec||30)*1000; BR.timerMs=BR.timerTotal; BR.failed=false;
   renderBreach(); show('breach');
   log('<span class="m">[NOYAU]</span> BREACH PROTOCOL engagé — '+(cfg.timerSec||30)+'s pour forcer les deux séquences.');
@@ -3511,6 +3599,16 @@ initState();
       async cleanup(code){
         const snap = await fs.getDocs(fs.query(fs.collection(db, RN), fs.where("session","==",code)));
         await Promise.all(snap.docs.map(d => fs.deleteDoc(d.ref)));
+      }
+    };
+    const LN = "live_blackout";
+    window.LIVE = {
+      online: true,
+      async publish(id, data){ await fs.setDoc(fs.doc(db, LN, id), data); },
+      async clearOld(maxAgeMs){
+        const cut = Date.now() - (maxAgeMs||10800000);
+        const snap = await fs.getDocs(fs.collection(db, LN));
+        await Promise.all(snap.docs.filter(d=>(d.data().ts||0)<cut).map(d=>fs.deleteDoc(d.ref)));
       }
     };
     window.dispatchEvent(new Event("lb-ready"));

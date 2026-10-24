@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GHOST:// Tables en direct — BLACKOUT</title>
+<style>
+  :root{
+    --bg:#05070a; --panel:#0a0f16; --panel2:#0d141d;
+    --cyan:#00e5ff; --cyan-d:#0097b2; --mag:#ff2e88;
+    --green:#2fff9a; --amber:#ffce54; --grey:#6c7f93; --lgrey:#9fb0c2; --line:#15212e;
+    --mono:ui-monospace,"Cascadia Code","Source Code Pro",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--lgrey);font-family:var(--mono);min-height:100vh;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
+    background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(0,0,0,.16) 3px,transparent 4px);mix-blend-mode:overlay;opacity:.45}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:59;background:radial-gradient(ellipse at 50% 30%,transparent 45%,rgba(0,0,0,.5) 100%)}
+  .wrap{max-width:1400px;margin:0 auto;padding:26px 24px 50px;position:relative;z-index:1}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:26px}
+  .brandblock .logo{font-size:clamp(22px,4vw,34px);font-weight:700;letter-spacing:.05em}
+  .brandblock .logo .g{color:var(--cyan);text-shadow:0 0 16px rgba(0,229,255,.5)}
+  .brandblock .sub{font-size:12px;color:var(--mag);letter-spacing:.28em;margin-top:3px}
+  .counthud{text-align:right}
+  .counthud .n{font-size:clamp(28px,6vw,48px);font-weight:700;color:var(--cyan);line-height:1;text-shadow:0 0 18px rgba(0,229,255,.3)}
+  .counthud .l{font-size:11px;letter-spacing:.2em;color:var(--grey)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
+  .tcard{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),var(--panel2));border-radius:7px;padding:18px;position:relative;overflow:hidden;transition:border-color .3s}
+  .tcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cyan);box-shadow:0 0 14px var(--cyan)}
+  .tcard.won::before{background:var(--green);box-shadow:0 0 14px var(--green)}
+  .tcard.lost::before{background:var(--mag);box-shadow:0 0 14px var(--mag)}
+  .tcard.stale{opacity:.5}
+  .tcard .row1{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px}
+  .tcard .team{font-size:21px;font-weight:700;color:#eaf6ff;letter-spacing:.02em;word-break:break-word}
+  .tcard .modeb{font-size:10px;font-weight:700;letter-spacing:.12em;padding:3px 7px;border-radius:3px;flex-shrink:0}
+  .modeb.std{color:var(--cyan);border:1px solid var(--cyan-d)}
+  .modeb.exp{color:var(--mag);border:1px solid #7a1140}
+  .tcard .phase{font-size:12px;letter-spacing:.14em;color:var(--grey);margin-bottom:14px}
+  .tcard .phase b{color:var(--cyan)}
+  .tcard.won .phase b{color:var(--green)} .tcard.lost .phase b{color:var(--mag)}
+  .tbar{height:9px;background:var(--line);border-radius:5px;overflow:hidden;margin-bottom:6px}
+  .tbar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--cyan-d));transition:width .6s}
+  .tcard.won .tbar>i{background:linear-gradient(90deg,var(--green),#128a4e);width:100%!important}
+  .tprog{font-size:11px;color:var(--grey);margin-bottom:14px}
+  .tclock{display:flex;align-items:baseline;justify-content:space-between}
+  .tclock .time{font-size:34px;font-weight:700;color:var(--cyan);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+  .tclock .time.warn{color:var(--amber)} .tclock .time.crit{color:var(--mag);animation:blink 1s infinite}
+  .tclock .time.done{font-size:24px}
+  @keyframes blink{50%{opacity:.45}}
+  .tclock .tl{font-size:9px;letter-spacing:.18em;color:var(--grey);text-align:right}
+
+  .empty{text-align:center;color:var(--grey);font-size:15px;line-height:1.8;padding:70px 20px;border:1px dashed var(--line);border-radius:8px}
+  .empty b{color:var(--cyan)}
+  .status{text-align:center;font-size:11px;letter-spacing:.1em;margin-top:26px;color:var(--grey)}
+  .status.on{color:var(--green)} .status.off{color:var(--mag)}
+  .foot{margin-top:10px;text-align:center;font-size:10px;color:#33414f;letter-spacing:.1em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brandblock">
+      <div class="logo"><span class="g">GHOST</span>:// <span style="font-size:.6em;color:var(--grey)">tables en direct</span></div>
+      <div class="sub">PROTOCOLE&nbsp;&nbsp;B L A C K O U T</div>
+    </div>
+    <div class="counthud"><div id="activeN" class="n">0</div><div class="l">TABLES EN JEU</div></div>
+  </header>
+  <div id="board"></div>
+  <div id="status" class="status">connexion au réseau…</div>
+  <div class="foot">CYBER FUN — écran spectateur · mise à jour en temps réel</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const FIREBASE = {
+  apiKey: "AIzaSyB5XC4hRui4JYuQY2jqTG_Sgmlu7y1MRh0",
+  authDomain: "escape-saint-tropez.firebaseapp.com",
+  projectId: "escape-saint-tropez",
+  storageBucket: "escape-saint-tropez.firebasestorage.app",
+  messagingSenderId: "976273690468",
+  appId: "1:976273690468:web:bf14f308033851746bf471"
+};
+const COLLECTION = "live_blackout";
+const MAX_AGE = 3*3600*1000;   // n'affiche que les tables vues dans les 3 dernières heures
+const STALE   = 90*1000;       // au-delà de 90s sans signal -> table "inactive"
+
+let rows=[];
+const PHASES = {
+  connexion:{lbl:'CONNEXION DES AGENTS', active:true},
+  hack:{lbl:'INTRUSION EN COURS', active:true},
+  breach:{lbl:'BREACH PROTOCOL', active:true},
+  'gagné':{lbl:'✓ SYSTÈME NEUTRALISÉ', active:false, cls:'won'},
+  perdu:{lbl:'✕ ÉQUIPE TRACÉE', active:false, cls:'lost'}
+};
+function esc(t){return (t||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmt(s){ s=Math.max(0,Math.round(s)); const m=Math.floor(s/60),x=s%60; return String(m).padStart(2,'0')+':'+String(x).padStart(2,'0'); }
+
+function liveRemaining(d){
+  const ph=PHASES[d.phase]||{};
+  if(!ph.active) return d.remaining||0;
+  const elapsed=(Date.now()-(d.ts||0))/1000;
+  return Math.max(0,(d.remaining||0)-elapsed);
+}
+function isStale(d){ const ph=PHASES[d.phase]||{}; return ph.active && (Date.now()-(d.ts||0))>STALE; }
+
+function render(){
+  const now=Date.now();
+  const list=rows.filter(d=>d && (now-(d.ts||0))<MAX_AGE);
+  // tri : actives d'abord (progression desc, puis temps restant asc), finies ensuite
+  function tier(d){ const act=(PHASES[d.phase]||{}).active; if(act&&!isStale(d)) return 2; if(act) return 1; return 0; }
+  list.sort((a,b)=>{
+    const ta=tier(a), tb=tier(b);
+    if(ta!==tb) return tb-ta;
+    if(ta>=1){ const pa=(a.done||0)/(a.total||1), pb=(b.done||0)/(b.total||1); if(pb!==pa) return pb-pa; return liveRemaining(a)-liveRemaining(b); }
+    return (b.ts||0)-(a.ts||0);
+  });
+  const active=list.filter(d=>(PHASES[d.phase]||{}).active && !isStale(d)).length;
+  document.getElementById('activeN').textContent=active;
+  const board=document.getElementById('board');
+  if(!list.length){
+    board.innerHTML='<div class="empty">En attente de connexion des tables…<br><br>Chaque partie lancée sur un poste <b>BLACKOUT</b> apparaîtra ici en direct.</div>';
+    return;
+  }
+  board.className='grid';
+  board.innerHTML=list.map(d=>{
+    const ph=PHASES[d.phase]||{lbl:(d.phase||'—').toUpperCase(),active:true};
+    const stale=isStale(d);
+    const rem=liveRemaining(d);
+    const frac = ph.cls==='won'?1 : Math.min(1,(d.done||0)/(d.total||1));
+    let tcls=''; if(rem<=300) tcls='crit'; else if(rem<=600) tcls='warn';
+    const cardcls = (ph.cls||'')+(stale?' stale':'');
+    const clockR = ph.active
+      ? `<div class="time ${tcls}">${fmt(rem)}</div><div class="tl">${stale?'— signal perdu —':'AVANT ORACLE'}</div>`
+      : (ph.cls==='won'
+          ? `<div class="time done" style="color:var(--green)">EN ${fmt(d.remaining||0)}</div><div class="tl">TEMPS RESTANT</div>`
+          : `<div class="time done" style="color:var(--mag)">00:00</div><div class="tl">DÉTECTÉ</div>`);
+    return `<div class="tcard ${cardcls}">
+      <div class="row1"><div class="team">${esc(d.team)}</div><div class="modeb ${d.mode==='expert'?'exp':'std'}">${d.mode==='expert'?'EXPERT':'STANDARD'}</div></div>
+      <div class="phase"><b>${ph.lbl}</b></div>
+      <div class="tbar"><i style="width:${Math.round(frac*100)}%"></i></div>
+      <div class="tprog">${d.phase==='connexion'?('agents : '+(d.agents||'?')) : ('verrous : '+(d.done||0)+' / '+(d.total||0))}</div>
+      <div class="tclock">${clockR}</div>
+    </div>`;
+  }).join('');
+}
+
+// countdown local fluide (1s) entre les mises à jour Firebase
+setInterval(render, 1000);
+
+const st=document.getElementById('status');
+try{
+  const app=initializeApp(FIREBASE); const db=getFirestore(app);
+  onSnapshot(collection(db, COLLECTION), snap=>{
+    rows=snap.docs.map(d=>d.data());
+    st.className='status on'; st.textContent='🌐 connecté — temps réel';
+    render();
+  }, err=>{ st.className='status off'; st.textContent='⚠ connexion impossible — vérifiez le réseau / les règles Firestore'; });
+}catch(e){ st.className='status off'; st.textContent='⚠ Firebase indisponible'; }
+render();
+</script>
+</body>
+</html>
