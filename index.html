@@ -70,6 +70,8 @@
   .btn:active{transform:translateY(1px)}
   .btn.full{width:100%; justify-content:center; margin-top:14px; padding:18px}
   .modepick{margin-top:18px;display:flex;flex-direction:column;gap:4px}
+  .btn.fam{background:var(--green);color:var(--bg);box-shadow:0 0 20px rgba(47,255,154,.35)}
+  .btn.fam:hover{box-shadow:0 0 30px rgba(47,255,154,.6)}
   .btn.ghost{background:transparent; color:var(--cyan); border:1px solid var(--cyan-d); box-shadow:none}
   .btn.ghost:hover{background:rgba(0,229,255,.08); box-shadow:0 0 16px rgba(0,229,255,.2)}
   .btn.mag{background:var(--mag); box-shadow:0 0 20px rgba(255,46,136,.4); color:#fff}
@@ -321,11 +323,12 @@
       </select>
     </div>
     <div class="modepick">
+      <button class="btn full fam" onclick="startGame('famille')">▸ INITIER — MODE FAMILLE</button>
       <button class="btn full" onclick="startGame('standard')">▸ INITIER — MODE STANDARD</button>
       <button class="btn full mag" onclick="startGame('expert')">▸ INITIER — MODE EXPERT</button>
     </div>
     <button type="button" class="btn ghost full" style="margin-top:12px" onclick="showRanking()">📊 CLASSEMENT DES ÉQUIPES</button>
-    <div class="footnote">STANDARD : énigmes directes · EXPERT : double couche + épreuves QR en ligne<br>Chaque mode a son propre kit papier. Animateur : touche « R » pour la régie.</div>
+    <div class="footnote">STANDARD : énigmes directes · EXPERT : double couche + coffre + breach · FAMILLE : plus doux (indices généreux, feuilles STANDARD)<br>Animateur : touche « R » pour la régie.</div>
   </section>
 
   <!-- ============ JEU ============ -->
@@ -2814,13 +2817,27 @@ const CONFIG = {
   critAtSec:    5*60,           // chrono rouge/pulsant sous ce seuil
   sound: true,                  // sons (bips + effets perso) ; false = tout muet
   sfxVolume: 0.85,              // volume des effets glitch perso (0 à 1)
-  regiePass: "CYBERFUN",       // mot de passe pour ouvrir la régie (à changer)
+  regiePass: "Jepense83",       // mot de passe pour ouvrir la régie (à changer)
   regiePenalties: {            // points retirés au score quand la régie aide l'équipe
     skip:     400,             //   sauter / débloquer un verrou
     solution: 250,             //   révéler la solution d'un verrou
     addTime:  300,             //   ajouter 5 minutes
     relay:    100              //   forcer la connexion (relais)
-  }
+  },
+  modeMultiplier: {            // multiplicateur de score : plus c'est dur, plus ça rapporte
+    famille:  0.7,
+    standard: 1.0,
+    expert:   1.5
+  },
+  voice: true,                 // ORACLE parle (synthèse vocale du navigateur)
+  voiceLang: "fr-FR",          // langue de la voix
+  voicePitch: 0.5,             // hauteur (0=grave/menaçant … 2=aigu)
+  voiceRate: 0.95,             // vitesse
+  /* DECLENCHEURS PHYSIQUES : une URL par evenement (vide = rien).
+     Le terminal « ping » l'URL a chaque evenement (GET, sans reponse attendue).
+     Branchez un ESP8266/ESP32, une prise Shelly, Home Assistant, IFTTT…
+     Ex : webhooks:{ alert:"http://192.168.1.50/alerte", win:"http://192.168.1.50/victoire" } */
+  webhooks: { start:"", verrou:"", alert:"", breach:"", win:"", lose:"", reset:"" }
 };
 /* ═══ SONS GLITCH PERSO ═══
    Dépose tes fichiers dans un dossier "sfx/" à côté de ce terminal (sur GitHub).
@@ -2938,6 +2955,11 @@ const SETS = {
     }
   }
 };
+/* MODE FAMILLE : memes enigmes/feuilles que STANDARD, mais plus doux
+   (90 min, relais routage couleurs, dernier indice = la reponse, pas de breach). */
+SETS.famille = { durationSec: 60*60, easyHints:true,
+  relay: { enabled:true, variant:'routage', cables:4 },
+  variants: SETS.standard.variants };
 let ACTIVE_VARIANT = "A";
 let MISSIONS = SETS.standard.variants.A.missions;
 let FINAL    = SETS.standard.variants.A.final;
@@ -2993,7 +3015,7 @@ function initState(){
 
 /* ===================== SON ===================== */
 const _sfxCache={}; let _sfxPlaying=[];
-function stopAllSfx(){ _sfxPlaying.forEach(a=>{try{a.pause();a.currentTime=0;}catch(e){}}); _sfxPlaying=[]; }
+function stopAllSfx(){ _sfxPlaying.forEach(a=>{try{a.pause();a.currentTime=0;}catch(e){}}); _sfxPlaying=[]; stopSpeak(); }
 function sfxBase(){ const p=location.pathname.replace(/[^/]*$/,''); return (location.origin==='null'?'':location.origin)+p; }
 function sfx(name, fallback){
   if(!CONFIG.sound){ return; }
@@ -3011,6 +3033,26 @@ function sfx(name, fallback){
     }catch(e){ /* tombe sur le fallback */ }
   }
   if(fallback) fallback();
+}
+let _voices=[];
+function _loadVoices(){ try{ _voices=window.speechSynthesis?window.speechSynthesis.getVoices():[]; }catch(e){ _voices=[]; } }
+if(typeof window!=='undefined' && window.speechSynthesis){ _loadVoices(); try{ window.speechSynthesis.onvoiceschanged=_loadVoices; }catch(e){} }
+function speak(txt){
+  if(!CONFIG.sound || !CONFIG.voice) return;
+  try{
+    if(!window.speechSynthesis) return;
+    const u=new SpeechSynthesisUtterance(txt);
+    u.lang=CONFIG.voiceLang||'fr-FR'; u.pitch=CONFIG.voicePitch; u.rate=CONFIG.voiceRate; u.volume=1;
+    if(!_voices.length) _loadVoices();
+    const v=_voices.find(x=>x.lang&&x.lang.toLowerCase().indexOf((CONFIG.voiceLang||'fr').slice(0,2))===0);
+    if(v) u.voice=v;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function stopSpeak(){ try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){} }
+function fireHook(ev){
+  try{ const url=(CONFIG.webhooks||{})[ev]; if(!url) return;
+    fetch(url,{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(e){}
 }
 function beep(freq,dur,type){
   if(!CONFIG.sound) return;
@@ -3057,6 +3099,7 @@ function oracle(kind){
   const line=pool[Math.floor(Math.random()*pool.length)];
   log('<span class="o">[ORACLE]</span> '+line);
   sfx('oracle', ()=>beep(90,0.18,'sawtooth'));
+  speak(line);
 }
 function log(html){
   const el=document.getElementById('log');
@@ -3097,7 +3140,7 @@ function stopLivePublish(){ clearInterval(liveInt); liveInt=null; }
 
 function setVariant(v){ if(v==="A"||v==="B"||v==="C") ACTIVE_VARIANT=v; }
 function startGame(mode){
-  mode = (mode==="expert")?"expert":"standard";
+  mode = (mode==="expert"||mode==="famille")?mode:"standard";
   const V = (SETS[mode].variants && SETS[mode].variants[ACTIVE_VARIANT]) ? ACTIVE_VARIANT : "A";
   MISSIONS = SETS[mode].variants[V].missions; FINAL = SETS[mode].variants[V].final;
   DURATION = SETS[mode].durationSec || CONFIG.durationSec;
@@ -3120,7 +3163,7 @@ function beginGame(){
   log('<span class="a">[ORACLE]</span> séquence de réveil amorcée — '+fmt(DURATION)+' avant mise en ligne.');
   log('<span class="g">[OBJECTIF]</span> franchir '+MISSIONS.length+' verrous puis lancer BLACKOUT.');
   startTimer(); beep(660,0.1);
-  livePhase='hack'; publishLive('hack'); startLivePublish();
+  livePhase='hack'; publishLive('hack'); startLivePublish(); fireHook('start');
   setTimeout(()=>{const c=document.getElementById('code'); if(c)c.focus();},400);
 }
 
@@ -3138,7 +3181,7 @@ function startTimer(){
     }
     // seuils ORACLE
     if(!state.oWarn && state.remaining<=CONFIG.warnAtSec && state.remaining>CONFIG.critAtSec){ state.oWarn=true; oracle('warn'); }
-    if(!state.oCrit && state.remaining<=CONFIG.critAtSec){ state.oCrit=true; sfx('alert'); oracle('crit'); }
+    if(!state.oCrit && state.remaining<=CONFIG.critAtSec){ state.oCrit=true; sfx('alert'); fireHook('alert'); oracle('crit'); }
     // taunt périodique (toutes les ~3 min) hors zones de seuil
     const elapsed=DURATION-state.remaining;
     if(elapsed>0 && elapsed-(state.oLast||0)>=180){ state.oLast=elapsed; oracle('periodic'); }
@@ -3226,7 +3269,7 @@ function submitCode(){
     renderFrags();
     if(m.vault) log('<span class="a">[COFFRE]</span> cadenas désactivé — dossier scellé à récupérer dans le coffre.');
     state.idx++;
-    publishLive();
+    publishLive(); fireHook('verrou');
     if(state.idx>=MISSIONS.length){
       state.final=true;
       log('<span class="c">[GHOST://]</span> les '+MISSIONS.length+' verrous sont tombés. Reconstituez la commande BLACKOUT.');
@@ -3247,26 +3290,39 @@ function submitCode(){
 
 /* ===================== INDICES ===================== */
 function updateHintCount(){
-  document.getElementById('hintcount').textContent=state.hintShown+'/3';
+  const em=(SETS[state_mode]&&SETS[state_mode].easyHints)?4:3; document.getElementById('hintcount').textContent=state.hintShown+'/'+em;
 }
 function nextHint(){
   const m=curMission();
-  if(state.hintShown>=m.hints.length){ return; }
+  const easy = SETS[state_mode] && SETS[state_mode].easyHints;
+  const maxH = m.hints.length + (easy?1:0);   // famille : 1 indice bonus = la réponse
+  if(state.hintShown>=maxH){ return; }
   const h=document.createElement('div'); h.className='hint';
-  h.textContent='› '+m.hints[state.hintShown];
+  if(easy && state.hintShown===m.hints.length){
+    h.style.color='var(--green)';
+    h.textContent='✓ RÉPONSE : '+m.code;
+  } else {
+    h.textContent='› '+m.hints[state.hintShown];
+  }
   document.getElementById('hints').appendChild(h);
   state.hintShown++; state.hintsTotal++; updateHintCount(); beep(440,0.08);
   if(state.hintsTotal%2===1) oracle('hint');
   log('<span class="a">[INDICE]</span> verrou '+(state.final?'final':'0'+(state.idx+1))+' — indice '+state.hintShown+' demandé.');
 }
 
+/* ===================== ÉTIQUETTES MODE ===================== */
+function modeLabel(m){ return m==='expert'?'EXPERT':m==='famille'?'FAMILLE':'STANDARD'; }
+function modeTag(m){ return m==='expert'?'EXP':m==='famille'?'FAM':'STD'; }
+
 /* ===================== FIN ===================== */
 function computeScore(){
   const remaining=Math.max(0,state.remaining);
   const base=1000, speed=remaining, hp=state.hintsTotal*75, wp=state.wrongTotal*25;
   const rp=(state.regiePenalty||0);
-  let score=Math.max(100, Math.round(base+speed-hp-wp-rp));
-  return {score, base, speed, hp, wp, rp, remaining};
+  const mult=(CONFIG.modeMultiplier&&CONFIG.modeMultiplier[state_mode])||1;
+  const raw=base+speed-hp-wp-rp;
+  let score=Math.max(100, Math.round(raw*mult));
+  return {score, base, speed, hp, wp, rp, mult, remaining};
 }
 function rankFor(sc){
   if(sc>=2400) return {letter:'S', title:'GHOST LÉGENDAIRE'};
@@ -3278,7 +3334,7 @@ function rankFor(sc){
 function renderScorecard(s, rk, used){
   document.getElementById('scorecard').innerHTML=
    '<div class="scorebox">'
-   +'<div class="team">CELLULE : '+esc(state.teamName)+'  ·  MODE '+(state_mode==='expert'?'EXPERT':'STANDARD')+'</div>'
+   +'<div class="team">CELLULE : '+esc(state.teamName)+'  ·  MODE '+modeLabel(state_mode)+'</div>'
    +'<div class="rank rank-'+rk.letter+'">RANG '+rk.letter+' — '+rk.title+'</div>'
    +'<div class="bigscore">'+s.score+' <span>pts</span></div>'
    +'<div class="breakdown">'
@@ -3287,6 +3343,7 @@ function renderScorecard(s, rk, used){
    +'<div><span class="neg">&#128161; Indices</span> &middot; '+state.hintsTotal+' &times; 75 &middot; &minus;'+s.hp+'</div>'
    +'<div><span class="neg">&#10007; Tentatives ratees</span> &middot; '+state.wrongTotal+' &times; 25 &middot; &minus;'+s.wp+'</div>'
    +((s.rp>0)?'<div><span class="neg">&#9881; Aide régie</span> &middot; &minus;'+s.rp+'</div>':'')
+   +'<div><span class="pos">&#9733; Mode '+modeLabel(state_mode)+'</span> &middot; score &times;'+s.mult+'</div>'
    +'</div></div>';
 }
 function lbStatus(){ return '<div class="lbstatus">'+(window.LB&&window.LB.online?'\u{1F310} Classement partage en ligne':'\u{1F4F1} Classement local (cet appareil)')+'</div>'; }
@@ -3295,7 +3352,7 @@ function lbRows(rows, highlightTs){
   let h='<div class="lbrow hd"><div>#</div><div>CELLULE</div><div style="text-align:center">RANG</div><div style="text-align:right">SCORE</div></div>';
   sorted.forEach((e,i)=>{
     const me=(highlightTs&&e.ts===highlightTs)?' me':'';
-    const md=e.mode==='expert'?' \u00B7 EXP':' \u00B7 STD';
+    const md=' \u00B7 '+modeTag(e.mode);
     h+='<div class="lbrow'+me+'"><div class="pos">'+(i+1)+'</div>'
       +'<div>'+esc(e.team||'\u2014')+'<span style="color:var(--grey);font-size:10px">'+md+'</span></div>'
       +'<div class="rk rank-'+(e.rank||'D')+'">'+(e.rank||'?')+'</div>'
@@ -3378,7 +3435,7 @@ function winGame(){
   lastWinTs=entry.ts;
   renderScorecard(sc, rk, used);
   show('win');
-  stopLivePublish(); publishLive('gagné');
+  stopLivePublish(); publishLive('gagné'); fireHook('win');
   (async()=>{ try{ await window.LB.submit(entry); }catch(e){} renderWinLeaderboard(); })();
 }
 function loseGame(){
@@ -3386,7 +3443,7 @@ function loseGame(){
   state.finished=true; clearInterval(timerInt); clearInterval(breachInt);
   { const fx=document.getElementById('alertfx'); if(fx) fx.classList.remove('on'); }
   sfx('lose', ()=>beep(120,0.4,"sawtooth"));
-  stopLivePublish(); publishLive('perdu');
+  stopLivePublish(); publishLive('perdu'); fireHook('lose');
   const ls=document.getElementById('losestat');
   if(ls) ls.innerHTML=
      '<div>&#9656; Verrous franchis : <b style="color:var(--cyan)">'+state.idx+' / '+MISSIONS.length+'</b></div>'
@@ -3400,7 +3457,7 @@ function continueAnyway(){
   log('<span class="a">[RÉGIE]</span> mode libre activé — chrono en pause.');
   document.getElementById('rpause').textContent='▶ Reprendre le chrono';
 }
-function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); stopAllSfx(); GAME_ID=null; regieUnlocked=false; toggleRegie(false); initState(); show('intro'); }
+function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); stopAllSfx(); fireHook('reset'); GAME_ID=null; regieUnlocked=false; toggleRegie(false); initState(); show('intro'); }
 
 /* ===================== RELAIS — ÉTABLIR LA CONNEXION ===================== */
 let RELAY_SESSION=null, relayUnsub=null, relayDone=false;
@@ -3519,7 +3576,7 @@ function genBreach(cfg){
 }
 function startBreach(){
   const cfg=SETS[state_mode].breach; BR=genBreach(cfg);
-  livePhase='breach'; publishLive('breach');
+  livePhase='breach'; publishLive('breach'); fireHook('breach');
   BR.timerTotal=(cfg.timerSec||30)*1000; BR.timerMs=BR.timerTotal; BR.failed=false;
   renderBreach(); show('breach');
   log('<span class="m">[NOYAU]</span> BREACH PROTOCOL engagé — '+(cfg.timerSec||30)+'s pour forcer les deux séquences.');
@@ -3641,7 +3698,7 @@ function renderRegieGate(){
     try{
       const vv=(SETS[state_mode]&&SETS[state_mode].variants&&SETS[state_mode].variants[ACTIVE_VARIANT])?ACTIVE_VARIANT:'A';
       const ms=SETS[state_mode].variants[vv].missions, fn=SETS[state_mode].variants[vv].final;
-      let txt='JEU '+vv+' · MODE '+(state_mode==='expert'?'EXPERT':'STANDARD')+'<br>';
+      let txt='JEU '+vv+' · MODE '+modeLabel(state_mode)+'<br>';
       txt+=ms.map((m,i)=>'0'+(i+1)+' '+m.code).join(' · ');
       txt+=' · FINAL '+fn.code;
       rc.innerHTML=txt;
