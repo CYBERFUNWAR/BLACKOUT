@@ -285,9 +285,62 @@
     .wrap{padding:14px 12px 36px}
     .inrow input{min-width:120px}
   }
+
+  /* ===================== HABILLAGE VISUEL ===================== */
+  #bgfx{position:fixed;inset:0;width:100%;height:100%;z-index:0;opacity:.14;pointer-events:none}
+  .wrap{position:relative;z-index:2}
+  /* -- Œil d'ORACLE -- */
+  .oracle-eye{display:inline-block;position:relative;--eye:100px;line-height:0}
+  .oracle-eye svg{width:var(--eye);height:var(--eye);display:block;overflow:visible}
+  .oracle-eye .er{fill:none;stroke:var(--cyan-d);stroke-width:1.4;opacity:.65}
+  .oracle-eye .er1{stroke-dasharray:7 11;animation:eyespin 16s linear infinite;transform-origin:50% 50%}
+  .oracle-eye .er2{stroke-dasharray:3 8;animation:eyespin 10s linear infinite reverse;transform-origin:50% 50%}
+  .oracle-eye .socket{fill:#03070b;stroke:#12242e;stroke-width:1}
+  .oracle-eye .iris{filter:drop-shadow(0 0 7px rgba(0,229,255,.55));transform-box:fill-box;transform-origin:center;animation:irispulse 3.2s ease-in-out infinite}
+  .oracle-eye .pupil{fill:#02080c;transform-box:fill-box;transform-origin:center;transition:transform .18s}
+  .oracle-eye .glint{fill:#e6fdff;opacity:.85}
+  .oracle-eye .scanl{stroke:rgba(0,229,255,.55);stroke-width:1.4;transform-box:fill-box;transform-origin:center;animation:eyescan 3.6s ease-in-out infinite}
+  .oracle-eye .eyelabel{text-align:center;font-size:9px;letter-spacing:.34em;color:var(--grey);margin-top:7px}
+  @keyframes eyespin{to{transform:rotate(360deg)}}
+  @keyframes irispulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+  @keyframes eyescan{0%,100%{transform:translateY(-13px);opacity:0}50%{transform:translateY(13px);opacity:.55}}
+  .oracle-eye.speaking .iris{animation-duration:.5s}
+  .oracle-eye.speaking .pupil{transform:scale(1.5)}
+  .oracle-eye.speaking .scanl{animation-duration:.9s}
+  .oracle-eye.alert{filter:hue-rotate(165deg) saturate(1.5)}
+  .oracle-eye.alert .iris{animation-duration:.45s}
+  .eye-intro{--eye:118px;display:block;margin:22px auto 8px;text-align:center}
+  .eye-intro svg{margin:0 auto}
+  .eye-game{--eye:46px}
+  /* -- Icônes de verrou -- */
+  .vicon{width:30px;height:30px;flex-shrink:0}
+  .vicon path,.vicon circle,.vicon rect,.vicon line,.vicon polyline{fill:none;stroke:var(--cyan);stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+  .mtitle-row{display:flex;align-items:center;gap:12px}
+  /* -- Logo Cyber Fun (dépose img/cyberfun-logo.png) -- */
+  .cflogo{display:block;max-height:58px;max-width:220px;margin:18px auto 0;opacity:.92;filter:drop-shadow(0 0 10px rgba(0,229,255,.2))}
+  .cflogo.end{max-height:46px;margin:24px auto 0;opacity:.8}
+  /* -- Art de fin -- */
+  .endart{width:150px;height:150px;margin:0 auto 10px;display:block}
+  .endart .ea{fill:none;stroke-width:3;stroke-linecap:round}
+  .win-art .ring{stroke:var(--green);opacity:.75}
+  .win-art .dead{stroke:var(--green);stroke-width:5}
+  .win-art .crack{stroke:rgba(47,255,154,.6);stroke-width:2}
+  .win-art .socket{fill:#04140c;stroke:#123a26}
+  .lose-art circle,.lose-art line{stroke:var(--mag)}
+  .lose-art .sweep{stroke:rgba(255,46,136,.55);transform-origin:60px 60px;animation:radar 2.4s linear infinite}
+  .lose-art .blip{fill:var(--mag);stroke:none;animation:blip 1.2s ease-in-out infinite}
+  @keyframes radar{to{transform:rotate(360deg)}}
+  @keyframes blip{0%,100%{opacity:.2}50%{opacity:1}}
 </style>
 </head>
 <body>
+<canvas id="bgfx"></canvas>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <radialGradient id="irisGrad" cx="50%" cy="44%" r="56%">
+    <stop offset="0%" stop-color="#8ff6ff"/><stop offset="42%" stop-color="#00e5ff"/>
+    <stop offset="80%" stop-color="#0097b2"/><stop offset="100%" stop-color="#04141b"/>
+  </radialGradient>
+</defs></svg>
 <div id="alertfx"></div>
 <div class="wrap">
 
@@ -297,6 +350,7 @@
     <div class="brand">PROTOCOLE&nbsp;&nbsp;B L A C K O U T</div>
     <h1 class="hero">BLAC<span class="x">K</span>OUT</h1>
     <div class="sub">INFILTRATION&nbsp;&nbsp;N E X U S&nbsp;&nbsp;CORP</div>
+    <div class="oracle-eye eye-intro" id="eyeIntro"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg><div class="eyelabel">ORACLE · EN VEILLE</div></div>
 
     <div class="briefbox">
       <h2>// TRANSMISSION ENTRANTE — COLLECTIF GHOST</h2>
@@ -328,6 +382,7 @@
       <button class="btn full mag" onclick="startGame('expert')">▸ INITIER — MODE EXPERT</button>
     </div>
     <button type="button" class="btn ghost full" style="margin-top:12px" onclick="showRanking()">📊 CLASSEMENT DES ÉQUIPES</button>
+    <img class="cflogo" src="img/cyberfun-logo.png" alt="" onerror="this.style.display='none'">
     <div class="footnote">STANDARD : énigmes directes · EXPERT : double couche + coffre + breach · FAMILLE : plus doux (indices généreux, feuilles STANDARD)<br>Animateur : touche « R » pour la régie.</div>
   </section>
 
@@ -335,6 +390,7 @@
   <section id="game" class="screen">
     <div class="topbar">
       <div class="logo" style="font-size:16px" onclick="logoTap()"><span class="g">GHOST</span>:// <span style="color:var(--grey);font-size:12px">intrusion en cours</span></div>
+      <div class="oracle-eye eye-game" id="eyeGame"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg></div>
       <div style="text-align:right">
         <div id="timer" class="timer">60:00</div>
         <div class="tlabel">AVANT DÉTECTION ORACLE</div>
@@ -452,17 +508,20 @@
   <!-- ============ WIN ============ -->
   <section id="win" class="screen win">
     <div class="endbox">
+      <svg class="endart win-art" viewBox="0 0 120 120"><circle class="ea ring" cx="60" cy="60" r="52"/><circle class="ea ring" cx="60" cy="60" r="40"/><circle class="socket" cx="60" cy="60" r="30"/><line class="ea dead" x1="34" y1="60" x2="86" y2="60"/><polyline class="ea crack" points="60,20 56,46 68,50 58,60"/><polyline class="ea crack" points="60,100 64,74 52,70 62,60"/></svg>
       <div class="endbig">SYSTÈME<br>NEUTRALISÉ</div>
       <div class="endsub" style="color:var(--green)">▸ ORACLE est hors ligne. Vos traces sont effacées.</div>
       <div id="scorecard"></div>
       <div id="leaderboard"></div>
       <button class="btn ghost full" style="max-width:280px;margin:26px auto 0" onclick="resetGame()">↻ NOUVELLE INTRUSION</button>
+      <img class="cflogo end" src="img/cyberfun-logo.png" alt="" onerror="this.style.display='none'">
     </div>
   </section>
 
   <!-- ============ LOSE ============ -->
   <section id="lose" class="screen lose">
     <div class="endbox">
+      <svg class="endart lose-art" viewBox="0 0 120 120"><circle class="ea" cx="60" cy="60" r="52"/><circle class="ea" cx="60" cy="60" r="34"/><circle class="ea" cx="60" cy="60" r="16"/><line class="ea" x1="60" y1="2" x2="60" y2="22"/><line class="ea" x1="60" y1="98" x2="60" y2="118"/><line class="ea" x1="2" y1="60" x2="22" y2="60"/><line class="ea" x1="98" y1="60" x2="118" y2="60"/><line class="ea sweep" x1="60" y1="60" x2="60" y2="10"/><circle class="blip" cx="78" cy="44" r="5"/></svg>
       <div class="endbig">TRACE<br>DÉTECTÉE</div>
       <div class="endsub" style="color:var(--mag)">▸ ORACLE est en ligne. Votre connexion a été localisée.</div>
       <div id="losestat"></div>
@@ -2902,28 +2961,28 @@ const H = {
 };
 const DEF = {
   std:[
-    {title:"Transmission interceptée", hints:H.cesarStd,
+    {title:"Transmission interceptée", icon:"transmission", hints:H.cesarStd,
      instr:"Dossier <b>01</b> — déchiffrez la transmission interceptée (chiffre de César). Saisissez le mot de passe trouvé."},
-    {title:"Triangulation du signal", hints:H.triStd,
+    {title:"Triangulation du signal", icon:"signal", hints:H.triStd,
      instr:"Dossier <b>02</b> — quatre QR codes sont cachés dans la salle. Scannez-les, lisez position + chiffre, reconstituez la fréquence à 4 chiffres."},
-    {title:"Serveur secondaire", hints:H.acro,
+    {title:"Serveur secondaire", icon:"server", hints:H.acro,
      instr:"Dossier <b>03</b> — le nom de code du serveur est masqué dans les journaux. Lisez les processus de haut en bas."},
-    {title:"Pare-feu final", hints:H.leetStd,
+    {title:"Pare-feu final", icon:"firewall", hints:H.leetStd,
      instr:"Dossier <b>04</b> — traduisez le mot indiqué avec la table leet du dossier."}
   ],
   exp:[
-    {title:"Transmission cryptée", hints:H.cesarExp,
+    {title:"Transmission cryptée", icon:"transmission", hints:H.cesarExp,
      instr:"Dossier <b>01</b> — César dont la <b>clé n'est pas donnée</b>. Trouvez le décalage, déchiffrez l'instruction, puis exécutez-la pour obtenir le code."},
-    {title:"Triangulation distante", hints:H.triExp,
+    {title:"Triangulation distante", icon:"signal", hints:H.triExp,
      instr:"Dossier <b>02</b> — quatre QR-nœuds cachés ouvrent des <b>épreuves en ligne</b>. Résolvez chacune pour extraire un chiffre et sa position, puis reconstituez la fréquence."},
-    {title:"Serveur fantôme", hints:H.serv,
+    {title:"Serveur fantôme", icon:"server", hints:H.serv,
      instr:"Dossier <b>03</b> — identifiez le serveur cible par <b>déduction</b>. Croisez la table des 4 serveurs avec les 3 indices."},
-    {title:"Protocole d'armement", hints:H.coffre, vault:true,
+    {title:"Protocole d'armement", icon:"vault", hints:H.coffre, vault:true,
      success:"✓ CADENAS DÉSACTIVÉ — ouvrez le coffre et récupérez le dossier scellé à l'intérieur.",
      instr:"Dossier <b>04</b> — résolvez les quatre circuits pour obtenir le <b>code du cadenas</b> qui ouvre le coffre. Le dossier suivant est enfermé à l'intérieur."},
-    {title:"Message gravé", hints:H.polybe,
+    {title:"Message gravé", icon:"grid", hints:H.polybe,
      instr:"Dossier <b>05</b> (trouvé dans le coffre) — décodez le message gravé à l'aide du <b>carré de Polybe</b>."},
-    {title:"Pare-feu du noyau", hints:H.leetExp,
+    {title:"Pare-feu du noyau", icon:"firewall", hints:H.leetExp,
      instr:"Dossier <b>06</b> — décodez la phrase en <b>leet</b>, puis exécutez la consigne mathématique pour obtenir le code à 4 chiffres."}
   ]
 };
@@ -2931,7 +2990,7 @@ function mkMissions(defs, codes, frags){
   return defs.map((d,i)=>Object.assign({}, d, { code:codes[i], fragment:frags[i] }));
 }
 function mkFinal(mode, code){
-  return { code:code, title:"Protocole "+code,
+  return { code:code, icon:"power", title:"Protocole "+code,
     instr:"Dossier "+(mode==='expert'?'<b>07</b>':'<b>05</b>')+" — assemblez les <b>"+(mode==='expert'?6:4)+" fragments</b> dans l'ordre des verrous, puis lancez la commande maître." };
 }
 const SETS = {
@@ -3049,13 +3108,13 @@ function speak(txt){
     if(!_voices.length) _loadVoices();
     const v=_voices.find(x=>x.lang&&x.lang.toLowerCase().indexOf((CONFIG.voiceLang||'fr').slice(0,2))===0);
     if(v) u.voice=v;
-    _speaking=true;
-    u.onend=()=>{ _speaking=false; };
-    u.onerror=()=>{ _speaking=false; };
+    _speaking=true; eyeState('speaking',true);
+    u.onend=()=>{ _speaking=false; eyeState('speaking',false); };
+    u.onerror=()=>{ _speaking=false; eyeState('speaking',false); };
     window.speechSynthesis.speak(u);
   }catch(e){ _speaking=false; }
 }
-function stopSpeak(){ _speaking=false; try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){} }
+function stopSpeak(){ _speaking=false; eyeState('speaking',false); try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){} }
 function fireHook(ev){
   try{ const url=(CONFIG.webhooks||{})[ev]; if(!url) return;
     fetch(url,{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(e){}
@@ -3161,6 +3220,7 @@ function startGame(mode){
   const ac=parseInt((document.getElementById("agentcount")||{}).value,10);
   state.agentCount = (ac>0 && ac<=12) ? ac : 6;
   GAME_ID = 'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  startRegieRemote();
   const relay = SETS[mode].relay;
   if(relay && relay.enabled){ startRelay(); return; }
   beginGame();
@@ -3207,7 +3267,7 @@ function renderTimer(){
   if(state.remaining<=CONFIG.critAtSec){ t.classList.add('crit'); bar.classList.add('crit'); }
   else if(state.remaining<=CONFIG.warnAtSec){ t.classList.add('warn'); bar.classList.add('warn'); }
   const t2=document.getElementById('btimer'); if(t2){ t2.textContent=t.textContent; t2.className=t.className; }
-  const fx=document.getElementById('alertfx'); if(fx) fx.classList.toggle('on', !state.finished && state.remaining<=CONFIG.critAtSec);
+  const fx=document.getElementById('alertfx'); const inCrit=(!state.finished && state.remaining<=CONFIG.critAtSec); if(fx) fx.classList.toggle('on', inCrit); eyeState('alert', inCrit);
 }
 
 /* ===================== RENDU VERROUS ===================== */
@@ -3234,11 +3294,25 @@ function refreshLocks(){
 
 /* ===================== RENDU MISSION ===================== */
 function curMission(){ return state.final ? FINAL : MISSIONS[state.idx]; }
+function iconSVG(name){
+  const I={
+    transmission:'<circle cx="50" cy="50" r="7"/><path d="M32 32 Q22 50 32 68"/><path d="M68 32 Q78 50 68 68"/><path d="M20 22 Q4 50 20 78"/><path d="M80 22 Q96 50 80 78"/>',
+    signal:'<circle cx="50" cy="50" r="28"/><circle cx="50" cy="50" r="9"/><line x1="50" y1="6" x2="50" y2="24"/><line x1="50" y1="76" x2="50" y2="94"/><line x1="6" y1="50" x2="24" y2="50"/><line x1="76" y1="50" x2="94" y2="50"/>',
+    server:'<rect x="22" y="20" width="56" height="17" rx="3"/><rect x="22" y="43" width="56" height="17" rx="3"/><rect x="22" y="66" width="56" height="17" rx="3"/><circle cx="34" cy="28" r="2.5"/><circle cx="34" cy="51" r="2.5"/><circle cx="34" cy="74" r="2.5"/>',
+    vault:'<rect x="20" y="22" width="60" height="56" rx="5"/><circle cx="50" cy="50" r="14"/><line x1="50" y1="50" x2="50" y2="39"/><line x1="50" y1="50" x2="61" y2="55"/>',
+    grid:'<rect x="22" y="22" width="56" height="56" rx="3"/><line x1="22" y1="41" x2="78" y2="41"/><line x1="22" y1="59" x2="78" y2="59"/><line x1="41" y1="22" x2="41" y2="78"/><line x1="59" y1="22" x2="59" y2="78"/>',
+    firewall:'<path d="M50 16 L80 29 V52 C80 72 50 86 50 86 C50 86 20 72 20 52 V29 Z"/><line x1="50" y1="40" x2="50" y2="62"/>',
+    power:'<path d="M50 20 V50"/><path d="M33 33 A26 26 0 1 0 67 33"/>'
+  };
+  const p=I[name]; if(!p) return '';
+  return '<svg class="vicon" viewBox="0 0 100 100">'+p+'</svg>';
+}
 function renderMission(){
   const m=curMission();
   document.getElementById('mtag').textContent = state.final ? 'COMMANDE MAÎTRE / FINAL'
        : ('VERROU 0'+(state.idx+1)+' / 0'+MISSIONS.length);
-  document.getElementById('mtitle').textContent=m.title;
+  const mt=document.getElementById('mtitle'); mt.classList.add('mtitle-row');
+  mt.innerHTML=iconSVG(m.icon)+'<span>'+m.title+'</span>';
   document.getElementById('minstr').innerHTML=m.instr;
   document.getElementById('msg').textContent=''; document.getElementById('msg').className='msgline';
   document.getElementById('hints').innerHTML='';
@@ -3433,6 +3507,7 @@ async function confirmClear(){
   showRanking();
 }
 window.addEventListener('lb-ready',()=>{
+  if(GAME_ID) startRegieRemote();
   const rk=document.getElementById('ranking'), wn=document.getElementById('win');
   if(rk&&rk.classList.contains('active')) showRanking();
   if(wn&&wn.classList.contains('active')) renderWinLeaderboard();
@@ -3490,7 +3565,7 @@ function continueAnyway(){
   log('<span class="a">[RÉGIE]</span> mode libre activé — chrono en pause.');
   document.getElementById('rpause').textContent='▶ Reprendre le chrono';
 }
-function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); stopAllSfx(); fireHook('reset'); GAME_ID=null; regieUnlocked=false; toggleRegie(false); initState(); show('intro'); }
+function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); stopRegieRemote(); stopAllSfx(); fireHook('reset'); GAME_ID=null; regieUnlocked=false; toggleRegie(false); initState(); show('intro'); }
 
 /* ===================== RELAIS — ÉTABLIR LA CONNEXION ===================== */
 let RELAY_SESSION=null, relayUnsub=null, relayDone=false;
@@ -3731,7 +3806,8 @@ function renderRegieGate(){
     try{
       const vv=(SETS[state_mode]&&SETS[state_mode].variants&&SETS[state_mode].variants[ACTIVE_VARIANT])?ACTIVE_VARIANT:'A';
       const ms=SETS[state_mode].variants[vv].missions, fn=SETS[state_mode].variants[vv].final;
-      let txt='JEU '+vv+' · MODE '+modeLabel(state_mode)+'<br>';
+      let txt='ID PARTIE : '+(GAME_ID||'—')+' &nbsp;·&nbsp; régie distante active<br>';
+      txt+='JEU '+vv+' · MODE '+modeLabel(state_mode)+'<br>';
       txt+=ms.map((m,i)=>'0'+(i+1)+' '+m.code).join(' · ');
       txt+=' · FINAL '+fn.code;
       rc.innerHTML=txt;
@@ -3789,6 +3865,72 @@ function regieSkip(){
 }
 function regieReset(){ toggleRegie(false); resetGame(); }
 
+/* ===================== RÉGIE À DISTANCE (téléphone) ===================== */
+/* Repli hors-ligne : remplacé par le module Firebase s'il se charge. */
+window.REGIE_RC = window.REGIE_RC || { online:false, listen(){return function(){};}, async ack(){} };
+let regieRemoteUnsub=null, _regieDone=[];
+function regieAck(c, text){
+  try{ if(GAME_ID && window.REGIE_RC) window.REGIE_RC.ack(GAME_ID, {ackNonce:c.nonce, ackText:text||'OK', ackTs:Date.now()}); }catch(e){}
+}
+function currentCodesText(){
+  try{
+    const vv=(SETS[state_mode]&&SETS[state_mode].variants&&SETS[state_mode].variants[ACTIVE_VARIANT])?ACTIVE_VARIANT:'A';
+    const ms=SETS[state_mode].variants[vv].missions, fn=SETS[state_mode].variants[vv].final;
+    let t='JEU '+vv+' · '+modeLabel(state_mode)+' — ';
+    t+=ms.map((m,i)=>'0'+(i+1)+':'+m.code).join('  ');
+    t+='  FINAL:'+fn.code;
+    return t;
+  }catch(e){ return '(codes indisponibles)'; }
+}
+function regieRemoteApply(c){
+  if(!c || !c.cmd || !c.nonce) return;
+  if(_regieDone.indexOf(c.nonce)>=0) return;      // déjà traité
+  _regieDone.push(c.nonce); if(_regieDone.length>30) _regieDone.shift();
+  log('<span class="a">[RÉGIE DISTANTE]</span> commande reçue : '+esc(c.cmd)+'.');
+  switch(c.cmd){
+    case 'hint':
+      if(state && !state.finished){ nextHint(); regieAck(c,'Indice affiché sur l\'écran de jeu.'); }
+      else regieAck(c,'Aucune partie active.');
+      break;
+    case 'addtime':
+      if(state && !state.finished){ regieAddTime(); regieAck(c,'+5:00 ajoutées (−'+((CONFIG.regiePenalties||{}).addTime||0)+' pts).'); }
+      else regieAck(c,'Aucune partie active.');
+      break;
+    case 'pause':
+      if(state && !state.finished){ regiePause(); regieAck(c, state.paused?'Chrono EN PAUSE.':'Chrono REPRIS.'); }
+      else regieAck(c,'Aucune partie active.');
+      break;
+    case 'skip':
+      if(state && !state.finished){ regieSkip(); regieAck(c,'Verrou débloqué (−'+((CONFIG.regiePenalties||{}).skip||0)+' pts).'); }
+      else regieAck(c,'Aucune partie active.');
+      break;
+    case 'relay':
+      regieSkipRelay(); regieAck(c,'Relais forcé (−'+((CONFIG.regiePenalties||{}).relay||0)+' pts).');
+      break;
+    case 'alert':
+      oracle('periodic');
+      { const fx=document.getElementById('alertfx'); if(fx){ fx.classList.add('on'); setTimeout(()=>{ if(state && state.remaining>CONFIG.critAtSec) fx.classList.remove('on'); },1800); } }
+      regieAck(c,'Alerte ORACLE déclenchée sur l\'écran.');
+      break;
+    case 'reveal':
+      regieAck(c, currentCodesText());
+      break;
+    case 'reset':
+      regieAck(c,'Partie réinitialisée.');
+      setTimeout(()=>resetGame(),300);
+      break;
+    default:
+      regieAck(c,'Commande inconnue.');
+  }
+}
+function startRegieRemote(){
+  stopRegieRemote();
+  if(!GAME_ID || !window.REGIE_RC || !window.REGIE_RC.online) return;
+  _regieDone=[];
+  try{ regieRemoteUnsub=window.REGIE_RC.listen(GAME_ID, d=>{ if(d) regieRemoteApply(d); }); }catch(e){}
+}
+function stopRegieRemote(){ if(regieRemoteUnsub){ try{regieRemoteUnsub();}catch(e){} regieRemoteUnsub=null; } }
+
 /* logo : 3 clics = régie */
 function logoTap(){
   logoTaps++; clearTimeout(logoTO);
@@ -3803,6 +3945,33 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape') toggleRegie(false);
 });
 
+function eyeState(cls,on){ try{ document.querySelectorAll('.oracle-eye').forEach(e=>e.classList.toggle(cls,!!on)); }catch(e){} }
+/* Fond cyberpunk : pluie de données discrète */
+function startBgFx(){
+  if(CONFIG.bgFx===false) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv=document.getElementById('bgfx'); if(!cv) return;
+  const ctx=cv.getContext('2d'); let cols,drops,last=0;
+  const CH='0123456789ABCDEF<>/\\[]{}=+*GHOST'.split('');
+  function resize(){ cv.width=innerWidth; cv.height=innerHeight; cols=Math.floor(cv.width/16); drops=new Array(cols).fill(0).map(()=>Math.random()*cv.height/16); }
+  resize(); addEventListener('resize',resize);
+  function frame(t){
+    requestAnimationFrame(frame);
+    if(t-last<70) return; last=t;            // ~14 fps
+    ctx.fillStyle='rgba(5,7,10,0.22)'; ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.font='14px monospace';
+    for(let i=0;i<cols;i++){
+      const txt=CH[Math.floor(Math.random()*CH.length)];
+      const x=i*16, y=drops[i]*16;
+      ctx.fillStyle = Math.random()<0.04 ? 'rgba(0,229,255,0.9)' : 'rgba(0,160,185,0.55)';
+      ctx.fillText(txt,x,y);
+      if(y>cv.height && Math.random()>0.975) drops[i]=0;
+      drops[i]+=0.5+Math.random()*0.4;
+    }
+  }
+  requestAnimationFrame(frame);
+}
+startBgFx();
 initState();
 </script>
 
@@ -3863,6 +4032,14 @@ initState();
         const snap = await fs.getDocs(fs.collection(db, LN));
         await Promise.all(snap.docs.filter(d=>(d.data().ts||0)<cut).map(d=>fs.deleteDoc(d.ref)));
       }
+    };
+    const GN = "regie_blackout";
+    window.REGIE_RC = {
+      online: true,
+      listen(id, cb){
+        return fs.onSnapshot(fs.doc(db, GN, id), snap => { cb(snap.exists()? snap.data() : null); });
+      },
+      async ack(id, data){ await fs.setDoc(fs.doc(db, GN, id), data, {merge:true}); }
     };
     window.dispatchEvent(new Event("lb-ready"));
   } catch (err) {

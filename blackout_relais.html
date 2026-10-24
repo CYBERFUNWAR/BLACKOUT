@@ -69,12 +69,32 @@
   .foot{margin-top:22px;text-align:center;font-size:10px;color:#33414f;letter-spacing:.08em}
   .status{font-size:10px;text-align:center;margin-top:10px;color:var(--grey)}
   .status.on{color:var(--green)} .status.off{color:var(--mag)}
+
+  /* ---- Habillage (œil ORACLE + fond) ---- */
+  #bgfx{position:fixed;inset:0;width:100%;height:100%;z-index:0;opacity:.12;pointer-events:none}
+  .oracle-eye{display:inline-block;--eye:46px;line-height:0}
+  .oracle-eye svg{width:var(--eye);height:var(--eye);display:block;overflow:visible}
+  .oracle-eye .er{fill:none;stroke:var(--cyan-d);stroke-width:1.4;opacity:.6}
+  .oracle-eye .er1{stroke-dasharray:7 11;animation:eyespin 16s linear infinite;transform-origin:50% 50%}
+  .oracle-eye .er2{stroke-dasharray:3 8;animation:eyespin 10s linear infinite reverse;transform-origin:50% 50%}
+  .oracle-eye .socket{fill:#03070b;stroke:#12242e;stroke-width:1}
+  .oracle-eye .iris{filter:drop-shadow(0 0 6px rgba(0,229,255,.5));transform-box:fill-box;transform-origin:center;animation:irispulse 3.2s ease-in-out infinite}
+  .oracle-eye .pupil{fill:#02080c}
+  .oracle-eye .glint{fill:#e6fdff;opacity:.85}
+  .oracle-eye .scanl{stroke:rgba(0,229,255,.55);stroke-width:1.4;transform-box:fill-box;transform-origin:center;animation:eyescan 3.6s ease-in-out infinite}
+  @keyframes eyespin{to{transform:rotate(360deg)}}
+  @keyframes irispulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+  @keyframes eyescan{0%,100%{transform:translateY(-13px);opacity:0}50%{transform:translateY(13px);opacity:.55}}
+  .cflogo{display:block;max-height:46px;max-width:180px;opacity:.85;margin:14px auto 0}
 </style>
 </head>
 <body>
+<canvas id="bgfx"></canvas>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><radialGradient id="irisGrad" cx="50%" cy="44%" r="56%"><stop offset="0%" stop-color="#8ff6ff"/><stop offset="42%" stop-color="#00e5ff"/><stop offset="80%" stop-color="#0097b2"/><stop offset="100%" stop-color="#04141b"/></radialGradient></defs></svg>
 <div class="wrap">
   <div class="logo"><span class="g">GHOST</span>:// <span style="color:var(--grey);font-size:11px">nœud-relais</span></div>
   <div class="brand">PROTOCOLE&nbsp;&nbsp;B L A C K O U T</div>
+  <div class="oracle-eye" style="--eye:52px;display:block;margin:10px auto 2px"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg></div>
   <div id="view"></div>
   <div class="foot">CYBER FUN — connexion sécurisée au nœud</div>
 </div>
@@ -315,6 +335,21 @@ function boot(){
   writePlayer(false);   // signale "connecté" (pas encore validé)
 }
 boot();
+</script>
+<script>
+(function(){try{
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  var cv=document.getElementById('bgfx');if(!cv)return;var ctx=cv.getContext('2d'),cols,drops,last=0;
+  var CH='0123456789ABCDEF<>/[]{}=+*GHOST'.split('');
+  function resize(){cv.width=innerWidth;cv.height=innerHeight;cols=Math.floor(cv.width/16);drops=new Array(cols).fill(0).map(function(){return Math.random()*cv.height/16;});}
+  resize();addEventListener('resize',resize);
+  function frame(t){requestAnimationFrame(frame);if(t-last<70)return;last=t;
+    ctx.fillStyle='rgba(5,7,10,0.22)';ctx.fillRect(0,0,cv.width,cv.height);ctx.font='14px monospace';
+    for(var i=0;i<cols;i++){var txt=CH[Math.floor(Math.random()*CH.length)],x=i*16,y=drops[i]*16;
+      ctx.fillStyle=Math.random()<0.04?'rgba(0,229,255,0.9)':'rgba(0,160,185,0.5)';ctx.fillText(txt,x,y);
+      if(y>cv.height&&Math.random()>0.975)drops[i]=0;drops[i]+=0.5+Math.random()*0.4;}}
+  requestAnimationFrame(frame);
+}catch(e){}})();
 </script>
 </body>
 </html>
