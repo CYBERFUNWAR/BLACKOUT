@@ -264,6 +264,15 @@
     border-radius:3px; padding:10px 12px; margin-top:6px; min-height:20px}
   .regie .close{position:absolute; top:14px; right:14px; cursor:pointer; color:var(--grey); font-size:18px}
   .regie .hintkey{margin-top:18px; font-size:10.5px; color:var(--grey); line-height:1.6}
+  #regielock{margin-top:14px}
+  #regielock .ll{font-size:11px;letter-spacing:.14em;color:var(--mag);font-weight:700;margin-bottom:10px}
+  #regielock input{width:100%;font-family:var(--mono);font-size:15px;letter-spacing:.16em;text-align:center;color:var(--mag);
+    background:#03060a;border:1px solid #5a1230;border-radius:4px;padding:12px;outline:none;margin-bottom:8px}
+  #regielock input.shake{animation:shake .4s}
+  #regielock .lmsg{font-size:12px;min-height:18px}
+  #regielock .lmsg.err{color:var(--mag)}
+  #regiectrl{display:none}
+  #regiectrl.on{display:block}
   .regie .hintkey b{color:var(--cyan)}
 
   .footnote{margin-top:24px; text-align:center; font-size:10.5px; color:#33414f; letter-spacing:.1em}
@@ -461,7 +470,15 @@
 <div id="regie" class="regie">
   <span class="close" onclick="toggleRegie(false)">✕</span>
   <h3>// PANNEAU RÉGIE</h3>
-  <p>Réservé à l'animateur. Invisible pour les joueurs tant qu'il est fermé.</p>
+  <p>Réservé à l'animateur.</p>
+  <div id="regielock">
+    <div class="ll">🔒 ACCÈS ANIMATEUR — CODE REQUIS</div>
+    <input id="regiepass" type="password" autocomplete="off" spellcheck="false" placeholder="code régie"
+           onkeydown="if(event.key==='Enter')regieAuth()">
+    <button class="rbtn" style="text-align:center;color:var(--mag);border-color:#5a1230" onclick="regieAuth()">DÉVERROUILLER</button>
+    <div id="regielmsg" class="lmsg"></div>
+  </div>
+  <div id="regiectrl">
   <button class="rbtn" onclick="regiePause()" id="rpause">⏸ Mettre le chrono en pause</button>
   <button class="rbtn" onclick="regieAddTime()">＋ Ajouter 5 minutes</button>
   <button class="rbtn" onclick="regieShowSol()">🔑 Révéler la solution du verrou</button>
@@ -469,8 +486,9 @@
   <button class="rbtn" style="margin-top:10px" onclick="regieSkipRelay()">⏭ Forcer la connexion (relais)</button>
   <button class="rbtn" style="margin-top:10px" onclick="regieSkip()">⏭ Débloquer ce verrou (sauter)</button>
   <button class="rbtn" onclick="regieReset()">↻ Réinitialiser la partie</button>
+  </div>
   <div class="hintkey">
-    <b>Ouvrir/fermer la régie :</b> touche <b>R</b> ou 3 clics sur le logo GHOST://.<br><br>
+    <b>Ouvrir la régie :</b> touche <b>R</b> ou 3 clics sur le logo, puis le <b>code régie</b>.<br><br>
     <b>Codes des verrous</b> (modifiables dans SETS en haut du fichier) :<br>
     STANDARD — 01 NEXUS · 02 4271 · 03 OMEGA · 04 1337 · BLACKOUT.<br>
     EXPERT — 01 ELCARO · 02 4271 · 03 OMEGA · 04 2780(coffre) · 05 SPECTRE · 06 4011 · BLACKOUT.
@@ -2788,7 +2806,14 @@ const CONFIG = {
   warnAtSec:   10*60,           // chrono ambre sous ce seuil
   critAtSec:    5*60,           // chrono rouge/pulsant sous ce seuil
   sound: true,                  // sons (bips + effets perso) ; false = tout muet
-  sfxVolume: 0.85               // volume des effets glitch perso (0 à 1)
+  sfxVolume: 0.85,              // volume des effets glitch perso (0 à 1)
+  regiePass: "CYBERFUN",       // mot de passe pour ouvrir la régie (à changer)
+  regiePenalties: {            // points retirés au score quand la régie aide l'équipe
+    skip:     400,             //   sauter / débloquer un verrou
+    solution: 250,             //   révéler la solution d'un verrou
+    addTime:  300,             //   ajouter 5 minutes
+    relay:    100              //   forcer la connexion (relais)
+  }
 };
 /* ═══ SONS GLITCH PERSO ═══
    Dépose tes fichiers dans un dossier "sfx/" à côté de ce terminal (sur GitHub).
@@ -2946,7 +2971,7 @@ function norm(s){return (s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
 
 function initState(){
   state = { idx:0, final:false, finished:false, remaining:DURATION,
-            paused:false, hintShown:0, hintsTotal:0, wrongTotal:0, got:[], started:false, teamName:"CELLULE GHOST" };
+            paused:false, hintShown:0, hintsTotal:0, wrongTotal:0, regiePenalty:0, got:[], started:false, teamName:"CELLULE GHOST" };
 }
 
 /* ===================== SON ===================== */
@@ -3217,8 +3242,9 @@ function nextHint(){
 function computeScore(){
   const remaining=Math.max(0,state.remaining);
   const base=1000, speed=remaining, hp=state.hintsTotal*75, wp=state.wrongTotal*25;
-  let score=Math.max(100, Math.round(base+speed-hp-wp));
-  return {score, base, speed, hp, wp, remaining};
+  const rp=(state.regiePenalty||0);
+  let score=Math.max(100, Math.round(base+speed-hp-wp-rp));
+  return {score, base, speed, hp, wp, rp, remaining};
 }
 function rankFor(sc){
   if(sc>=2400) return {letter:'S', title:'GHOST LÉGENDAIRE'};
@@ -3238,6 +3264,7 @@ function renderScorecard(s, rk, used){
    +'<div><span class="pos">&#9201; Vitesse</span> &middot; bouclee en '+fmt(used)+' (reste '+fmt(s.remaining)+') &middot; +'+s.speed+'</div>'
    +'<div><span class="neg">&#128161; Indices</span> &middot; '+state.hintsTotal+' &times; 75 &middot; &minus;'+s.hp+'</div>'
    +'<div><span class="neg">&#10007; Tentatives ratees</span> &middot; '+state.wrongTotal+' &times; 25 &middot; &minus;'+s.wp+'</div>'
+   +((s.rp>0)?'<div><span class="neg">&#9881; Aide régie</span> &middot; &minus;'+s.rp+'</div>':'')
    +'</div></div>';
 }
 function lbStatus(){ return '<div class="lbstatus">'+(window.LB&&window.LB.online?'\u{1F310} Classement partage en ligne':'\u{1F4F1} Classement local (cet appareil)')+'</div>'; }
@@ -3342,7 +3369,7 @@ function continueAnyway(){
   log('<span class="a">[RÉGIE]</span> mode libre activé — chrono en pause.');
   document.getElementById('rpause').textContent='▶ Reprendre le chrono';
 }
-function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); GAME_ID=null; initState(); show('intro'); }
+function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); GAME_ID=null; regieUnlocked=false; toggleRegie(false); initState(); show('intro'); }
 
 /* ===================== RELAIS — ÉTABLIR LA CONNEXION ===================== */
 let RELAY_SESSION=null, relayUnsub=null, relayDone=false;
@@ -3417,7 +3444,7 @@ function relayComplete(forced){
   setTimeout(()=>beginGame(), 1100);
 }
 function regieSkipRelay(){
-  if(document.getElementById('relay').classList.contains('active')){ toggleRegie(false); relayComplete(true); }
+  if(document.getElementById('relay').classList.contains('active')){ regiePenalize('relay'); toggleRegie(false); relayComplete(true); }
 }
 
 /* ===================== BREACH PROTOCOL ===================== */
@@ -3570,10 +3597,35 @@ function resetBreach(){
 }
 
 /* ===================== RÉGIE ===================== */
+let regieUnlocked=false;
+function renderRegieGate(){
+  const lock=document.getElementById('regielock'), ctrl=document.getElementById('regiectrl');
+  if(!lock||!ctrl) return;
+  lock.style.display = regieUnlocked?'none':'block';
+  ctrl.classList.toggle('on', regieUnlocked);
+  if(!regieUnlocked){ const i=document.getElementById('regiepass'); if(i){ i.value=''; setTimeout(()=>i.focus(),60); } }
+}
 function toggleRegie(force){
   const r=document.getElementById('regie');
   const open = force!==undefined ? force : !r.classList.contains('open');
   r.classList.toggle('open',open);
+  if(open) renderRegieGate();
+}
+function regieAuth(){
+  const i=document.getElementById('regiepass'), m=document.getElementById('regielmsg');
+  const val=((i&&i.value)||'').trim();
+  if(val && val.toUpperCase()===String(CONFIG.regiePass||'').toUpperCase()){
+    regieUnlocked=true; if(m){m.textContent='';} renderRegieGate();
+  }else{
+    if(m){ m.className='lmsg err'; m.textContent='✕ Code incorrect.'; }
+    if(i){ i.classList.add('shake'); setTimeout(()=>i.classList.remove('shake'),400); i.select(); }
+    beep(160,0.18,'sawtooth');
+  }
+}
+function regiePenalize(kind){
+  const p=(CONFIG.regiePenalties&&CONFIG.regiePenalties[kind])||0;
+  if(p>0 && state){ state.regiePenalty=(state.regiePenalty||0)+p;
+    log('<span class="a">[RÉGIE]</span> pénalité appliquée : −'+p+' pts.'); }
 }
 function regiePause(){
   state.paused=!state.paused;
@@ -3583,21 +3635,24 @@ function regiePause(){
 function regieAddTime(){
   state.remaining=Math.min(DURATION, state.remaining+300); renderTimer();
   log('<span class="a">[RÉGIE]</span> +5:00 ajoutées au chrono.');
+  regiePenalize('addTime');
 }
 function regieShowSol(){
   const m=curMission();
+  if(!document.getElementById('rsol').dataset.pen){ document.getElementById('rsol').dataset.pen='1'; regiePenalize('solution'); }
   document.getElementById('rsol').textContent='Solution : '+m.code;
 }
 function regieSkip(){
   if(state.finished) return;
   const m=curMission();
   if(state.final){ winGame(); toggleRegie(false); return; }
+  regiePenalize('skip');
   state.got.push(state.idx); renderFrags();
   log('<span class="a">[RÉGIE]</span> verrou 0'+(state.idx+1)+' débloqué manuellement.');
   state.idx++;
   if(state.idx>=MISSIONS.length){ state.final=true; }
   renderMission();
-  document.getElementById('rsol').textContent='—';
+  document.getElementById('rsol').textContent='—'; delete document.getElementById('rsol').dataset.pen;
 }
 function regieReset(){ toggleRegie(false); resetGame(); }
 
