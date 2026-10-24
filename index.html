@@ -2942,7 +2942,7 @@ const SOUNDS = {
    3 jeux A / B / C par mode, mots finaux différents (BLACKOUT / OVERRIDE / SHUTDOWN).
    Le jeu actif se choisit à l'accueil (doit correspondre aux FEUILLES IMPRIMÉES).
    Mécaniques identiques ; seules les réponses et le mot final changent.
-   NB EXPERT : le verrou 02 (épreuves web QR) a un code propre à chaque jeu — A:4271 · B:5386 · C:9147 (page épreuves ?g=A/B/C)
+   NB EXPERT : le verrou 02 (épreuves web QR) garde le code 4271 dans les 3 jeux
    (la page d'épreuves n'est pas dupliquée) ; seul son fragment change. */
 const H = {
   cesarStd:[
@@ -3036,8 +3036,8 @@ const SETS = {
     breach: { enabled:true, size:5, bufferSize:8, seqLens:[4,3], seqLabels:["OVERRIDE_ORACLE","PURGE_TRACE"], timerSec:30, alphabet:["1C","55","BD","E9","7A","FF"] },
     variants: {
       A: { label:"A · BLACKOUT", missions:mkMissions(DEF.exp, ["ELCARO","4271","OMEGA","2780","SPECTRE","4011"], ["B","LA","C","K","OU","T"]), final:mkFinal('expert',"BLACKOUT") },
-      B: { label:"B · OVERRIDE", missions:mkMissions(DEF.exp, ["METSYS","5386","DELTA","5319","NEMESIS","4444"], ["O","VE","R","R","ID","E"]), final:mkFinal('expert',"OVERRIDE") },
-      C: { label:"C · SHUTDOWN", missions:mkMissions(DEF.exp, ["SSECCA","9147","SIGMA","6402","CERBERE","6051"], ["S","HU","T","D","OW","N"]), final:mkFinal('expert',"SHUTDOWN") }
+      B: { label:"B · OVERRIDE", missions:mkMissions(DEF.exp, ["METSYS","4271","DELTA","5319","NEMESIS","4444"], ["O","VE","R","R","ID","E"]), final:mkFinal('expert',"OVERRIDE") },
+      C: { label:"C · SHUTDOWN", missions:mkMissions(DEF.exp, ["SSECCA","4271","SIGMA","6402","CERBERE","6051"], ["S","HU","T","D","OW","N"]), final:mkFinal('expert',"SHUTDOWN") }
     }
   }
 };
