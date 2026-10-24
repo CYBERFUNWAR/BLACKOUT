@@ -260,7 +260,7 @@ window.pickRight=function(j){
   }else{
     setMsg('✕ Mauvais routage — vérifiez la table.','err');
     const el=document.getElementById('L'+selLeft); if(el){el.classList.remove('sel');}
-    selLeft=null; beep(160,.18);
+    selLeft=null; sfx('error', ()=>beep(160,.18));
   }
 };
 window.flipBreaker=function(){
@@ -270,7 +270,7 @@ window.flipBreaker=function(){
     confirmed=true; repaint(); beep(660,.1); setTimeout(()=>beep(990,.15),130);
     solved();
   }else{
-    setMsg('⚡ DÉFAUT DÉTECTÉ — le tableau se réinitialise.','err'); beep(140,.4);
+    setMsg('⚡ DÉFAUT DÉTECTÉ — le tableau se réinitialise.','err'); sfx('error', ()=>beep(140,.4));
     links=[]; selLeft=null; confirmed=false;
     setTimeout(repaint,500);
   }
@@ -294,6 +294,15 @@ function showDone(){
 /* ===== son ===== */
 let ac=null;
 function beep(f,d){ try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(),g=ac.createGain(); o.type='square'; o.frequency.value=f; g.gain.value=.05; o.connect(g); g.connect(ac.destination); o.start(); g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1)); o.stop(ac.currentTime+(d||.1)); }catch(e){} }
+/* Sons glitch perso (même dossier sfx/ que le terminal). "" = bip de synthèse. */
+const SFX = { error:"sfx/glitch_error.mp3" };
+const SFX_VOL = 0.85; const _sfxc={};
+function sfxBase(){ const p=location.pathname.replace(/[^/]*$/,''); return (location.origin==='null'?'':location.origin)+p; }
+function sfx(name, fb){
+  const f=SFX[name];
+  if(f){ try{ if(!_sfxc[name])_sfxc[name]=new Audio(sfxBase()+f); const el=_sfxc[name].cloneNode(); el.volume=SFX_VOL; const pr=el.play(); if(pr&&pr.catch)pr.catch(()=>{if(fb)fb();}); return; }catch(e){} }
+  if(fb)fb();
+}
 
 /* ===== routage d'affichage ===== */
 window.addEventListener('resize', ()=>{ if(PZ) drawLinks(); });

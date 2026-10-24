@@ -2787,7 +2787,20 @@ const CONFIG = {
   durationSec: 60*60,           // durée totale (secondes)
   warnAtSec:   10*60,           // chrono ambre sous ce seuil
   critAtSec:    5*60,           // chrono rouge/pulsant sous ce seuil
-  sound: true                   // bips d'interface
+  sound: true,                  // sons (bips + effets perso) ; false = tout muet
+  sfxVolume: 0.85               // volume des effets glitch perso (0 à 1)
+};
+/* ═══ SONS GLITCH PERSO ═══
+   Dépose tes fichiers dans un dossier "sfx/" à côté de ce terminal (sur GitHub).
+   Un emplacement vide ("") = bip de synthèse par défaut.
+   Formats conseillés : .mp3 (universel) ou .wav/.ogg (adapte l'extension). */
+const SOUNDS = {
+  error:  "sfx/glitch_error.mp3",    // code refusé / mauvais routage / breach raté
+  oracle: "sfx/glitch_oracle.mp3",   // quand ORACLE parle
+  alert:  "sfx/glitch_alert.mp3",    // entrée en zone critique (<5 min)
+  unlock: "sfx/glitch_unlock.mp3",   // verrou ouvert
+  win:    "sfx/glitch_win.mp3",      // victoire
+  lose:   "sfx/glitch_lose.mp3"      // défaite
 };
 
 const SETS = {
@@ -2937,6 +2950,23 @@ function initState(){
 }
 
 /* ===================== SON ===================== */
+const _sfxCache={};
+function sfxBase(){ const p=location.pathname.replace(/[^/]*$/,''); return (location.origin==='null'?'':location.origin)+p; }
+function sfx(name, fallback){
+  if(!CONFIG.sound){ return; }
+  const file=SOUNDS[name];
+  if(file){
+    try{
+      if(!_sfxCache[name]){ const a=new Audio(sfxBase()+file); a.preload='auto'; _sfxCache[name]=a; }
+      const el=_sfxCache[name].cloneNode();
+      el.volume=(CONFIG.sfxVolume!=null?CONFIG.sfxVolume:0.85);
+      const pr=el.play();
+      if(pr&&pr.catch) pr.catch(()=>{ if(fallback) fallback(); });
+      return;
+    }catch(e){ /* tombe sur le fallback */ }
+  }
+  if(fallback) fallback();
+}
 function beep(freq,dur,type){
   if(!CONFIG.sound) return;
   try{
@@ -2981,7 +3011,7 @@ function oracle(kind){
   const pool=ORACLE_LINES[kind]; if(!pool||!pool.length) return;
   const line=pool[Math.floor(Math.random()*pool.length)];
   log('<span class="o">[ORACLE]</span> '+line);
-  beep(90,0.18,'sawtooth');
+  sfx('oracle', ()=>beep(90,0.18,'sawtooth'));
 }
 function log(html){
   const el=document.getElementById('log');
@@ -3061,7 +3091,7 @@ function startTimer(){
     }
     // seuils ORACLE
     if(!state.oWarn && state.remaining<=CONFIG.warnAtSec && state.remaining>CONFIG.critAtSec){ state.oWarn=true; oracle('warn'); }
-    if(!state.oCrit && state.remaining<=CONFIG.critAtSec){ state.oCrit=true; oracle('crit'); }
+    if(!state.oCrit && state.remaining<=CONFIG.critAtSec){ state.oCrit=true; sfx('alert'); oracle('crit'); }
     // taunt périodique (toutes les ~3 min) hors zones de seuil
     const elapsed=DURATION-state.remaining;
     if(elapsed>0 && elapsed-(state.oLast||0)>=180){ state.oLast=elapsed; oracle('periodic'); }
@@ -3135,7 +3165,7 @@ function submitCode(){
   if(!val){ msg.className='msgline err'; msg.textContent='▸ Entrez le code dans le champ avant de valider.'; inp.focus(); return; }
   const m=curMission();
   if(val===norm(m.code)){
-    beep(880,0.12); beep(1175,0.12,"sine");
+    sfx('unlock', ()=>{ beep(880,0.12); beep(1175,0.12,"sine"); });
     if(state.final){
       if(SETS[state_mode] && SETS[state_mode].breach && SETS[state_mode].breach.enabled){
         const bm=document.getElementById('msg'); if(bm){bm.className='msgline ok'; bm.textContent='✓ COMMANDE ACCEPTÉE — dernière barrière : BREACH PROTOCOL.';}
@@ -3159,7 +3189,7 @@ function submitCode(){
     }
   } else {
     state.wrongTotal++;
-    beep(160,0.18,"sawtooth");
+    sfx('error', ()=>beep(160,0.18,"sawtooth"));
     if(state.wrongTotal%2===0) oracle('wrong');
     msg.className='msgline err'; msg.textContent='✕ ACCÈS REFUSÉ — code invalide. Réessayez.';
     inp.classList.add('shake'); setTimeout(()=>inp.classList.remove('shake'),400);
@@ -3282,7 +3312,7 @@ window.addEventListener('lb-ready',()=>{
 function winGame(){
   state.finished=true; clearInterval(timerInt); clearInterval(breachInt); refreshLocks();
   { const fx=document.getElementById('alertfx'); if(fx) fx.classList.remove('on'); }
-  beep(660,0.1); setTimeout(()=>beep(880,0.1),120); setTimeout(()=>beep(1320,0.22,"sine"),260);
+  sfx('win', ()=>{ beep(660,0.1); setTimeout(()=>beep(880,0.1),120); setTimeout(()=>beep(1320,0.22,"sine"),260); });
   const used=DURATION-state.remaining;
   const sc=computeScore(); const rk=rankFor(sc.score);
   const entry={team:state.teamName, score:sc.score, rank:rk.letter, time:used,
@@ -3297,7 +3327,7 @@ function loseGame(){
   if(state.finished) return;
   state.finished=true; clearInterval(timerInt); clearInterval(breachInt);
   { const fx=document.getElementById('alertfx'); if(fx) fx.classList.remove('on'); }
-  beep(120,0.4,"sawtooth");
+  sfx('lose', ()=>beep(120,0.4,"sawtooth"));
   stopLivePublish(); publishLive('perdu');
   const ls=document.getElementById('losestat');
   if(ls) ls.innerHTML=
@@ -3461,7 +3491,7 @@ function breachFail(){
   renderBreach();
   const msg=document.getElementById('bmsg');
   if(msg){ msg.className='msgline err'; msg.textContent='⏱ DÉLAI DÉPASSÉ — le noyau se reverrouille. Réinitialisez le hack.'; }
-  beep(120,0.4,'sawtooth');
+  sfx('alert', ()=>beep(120,0.4,'sawtooth'));
 }
 function cellPlayable(r,c){
   if(!BR || BR.solved || BR.failed) return false;
@@ -3526,7 +3556,7 @@ function pickCell(r,c){
   renderBreach();
   if(BR.buffer.length>=BR.bufferSize){
     msg.className='msgline err'; msg.textContent='✕ BUFFER SATURÉ — réinitialisez le hack pour réessayer.';
-    beep(160,0.2,'sawtooth');
+    sfx('error', ()=>beep(160,0.2,'sawtooth'));
   } else { msg.textContent=''; msg.className='msgline'; }
 }
 function resetBreach(){
