@@ -2904,8 +2904,15 @@ const FIREBASE = {
   collection: "classement_blackout"
 };
 window.FIREBASE = FIREBASE;
-/* Mot de passe ADMIN requis pour vider le classement (modifiable). */
-const ADMIN_PASS = "ORACLE";
+/* ADMIN : vider le classement en ligne exige ce compte Firebase (email + mot de passe).
+   - ADMIN_EMAIL : l'email du compte admin créé dans Firebase Authentication.
+   - ADMIN_PASS  : sert UNIQUEMENT de repli en mode LOCAL (hors ligne). En ligne, c'est
+     le mot de passe du compte Firebase qui compte, vérifié côté serveur. */
+const ADMIN_EMAIL = "admin@cyberfun.fr";
+const ADMIN_PASS  = "ORACLE";
+window.ADMIN_EMAIL = ADMIN_EMAIL;
+/* Repli : pas d'auth en ligne tant que le module Firebase n'a pas chargé. */
+window.ADMIN_AUTH = window.ADMIN_AUTH || { online:false, async login(){throw new Error('offline');}, async logout(){} };
 /* Repli LOCAL par defaut (le module Firebase, s'il se charge, remplacera window.LB). */
 const LB_KEY='blackout_scores_v1';
 function loadLBlocal(){ try{return JSON.parse(localStorage.getItem(LB_KEY))||[];}catch(e){return [];} }
@@ -3241,11 +3248,27 @@ function toggleAdminClear(){
 async function confirmClear(){
   const i=document.getElementById('adminpass'), m=document.getElementById('adminmsg');
   const val=((i&&i.value)||'').trim();
-  if(!val || val.toUpperCase()!==ADMIN_PASS.toUpperCase()){
-    if(m){ m.className='msgline err'; m.textContent='\u2715 Mot de passe incorrect.'; }
-    if(i){ i.classList.add('shake'); setTimeout(()=>i.classList.remove('shake'),400); i.select(); }
-    beep(160,0.18,'sawtooth'); return;
+  const badPass=()=>{ if(m){ m.className='msgline err'; m.textContent='\u2715 Mot de passe incorrect.'; }
+    if(i){ i.classList.add('shake'); setTimeout(()=>i.classList.remove('shake'),400); i.select(); } beep(160,0.18,'sawtooth'); };
+  if(!val){ badPass(); return; }
+
+  if(window.LB && window.LB.online && window.ADMIN_AUTH && window.ADMIN_AUTH.online){
+    // --- EN LIGNE : vérification serveur via Firebase Auth ---
+    if(m){ m.className='msgline'; m.textContent='Authentification\u2026'; }
+    try{
+      await window.ADMIN_AUTH.login(val);           // échoue si mauvais mot de passe / compte absent
+    }catch(e){ badPass(); return; }
+    if(m){ m.textContent='Suppression\u2026'; }
+    let okDel=true;
+    try{ await window.LB.reset(); }catch(e){ okDel=false; }
+    try{ await window.ADMIN_AUTH.logout(); }catch(e){}
+    if(!okDel){ if(m){ m.className='msgline err'; m.textContent='\u2715 Suppression refusée par le serveur (règle Firestore ?).'; } return; }
+    const d=document.getElementById('adminclear'); if(d) d.classList.remove('open');
+    showRanking(); return;
   }
+
+  // --- HORS LIGNE (classement local) : repli sur ADMIN_PASS ---
+  if(val.toUpperCase()!==ADMIN_PASS.toUpperCase()){ badPass(); return; }
   if(m){ m.className='msgline'; m.textContent='Suppression\u2026'; }
   try{ await window.LB.reset(); }catch(e){}
   const d=document.getElementById('adminclear'); if(d) d.classList.remove('open');
@@ -3573,8 +3596,15 @@ initState();
   try {
     const appMod = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
     const fs     = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
+    const au     = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
     const app = appMod.initializeApp(cfg);
     const db  = fs.getFirestore(app);
+    const auth = au.getAuth(app);
+    window.ADMIN_AUTH = {
+      online: true,
+      async login(pass){ await au.signInWithEmailAndPassword(auth, (window.ADMIN_EMAIL||""), pass); },
+      async logout(){ try{ await au.signOut(auth); }catch(e){} }
+    };
     const CN  = cfg.collection || "classement_blackout";
     window.LB = {
       online: true,
