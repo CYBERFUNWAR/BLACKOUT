@@ -216,6 +216,9 @@
   .teamfield input::placeholder{color:#2c4050;letter-spacing:.02em}
   .teamfield select{width:100%;font-family:var(--mono);font-size:14px;letter-spacing:.04em;color:var(--cyan);
     background:#03060a;border:1px solid var(--cyan-d);border-radius:3px;padding:12px 14px;outline:none}
+  .teamfield input.invalid{border-color:var(--mag);box-shadow:0 0 0 2px rgba(255,61,240,.18)}
+  .teamfield input.shake{animation:shake .4s}
+  .introerr{min-height:16px;margin-top:8px;font-size:12px;letter-spacing:.03em;color:var(--mag);text-align:center}
   /* ===================== BREACH PROTOCOL ===================== */
   .breach-intro{font-size:13px;color:var(--lgrey);margin:4px 0 16px;border-left:3px solid var(--mag);padding-left:12px}
   .breach-wrap{display:flex;gap:18px;flex-wrap:wrap}
@@ -392,16 +395,17 @@
     </div>
 
     <div class="teamfield">
-      <input id="teamname" type="text" maxlength="22" autocomplete="off" spellcheck="false"
-             placeholder="Nom de votre cellule (optionnel)">
-      <input id="agentcount" type="number" min="1" max="12" inputmode="numeric"
-             placeholder="Nb d'agents (EXPERT) — ex. 6" style="margin-top:8px">
+      <input id="teamname" type="text" maxlength="22" autocomplete="off" spellcheck="false" required
+             placeholder="Nom de votre cellule * (obligatoire)">
+      <input id="agentcount" type="number" min="1" max="12" inputmode="numeric" required
+             placeholder="Nb d'agents * (1 à 12)" style="margin-top:8px">
       <select id="variantsel" onchange="setVariant(this.value)" style="margin-top:8px"
               title="Doit correspondre aux feuilles imprimées">
         <option value="A">Jeu d'énigmes A · BLACKOUT</option>
         <option value="B">Jeu d'énigmes B · OVERRIDE</option>
         <option value="C">Jeu d'énigmes C · SHUTDOWN</option>
       </select>
+      <div id="introerr" class="introerr"></div>
     </div>
     <div class="modepick">
       <button class="btn full fam" onclick="startGame('famille')">▸ INITIER — MODE FAMILLE</button>
@@ -3242,11 +3246,26 @@ function startGame(mode){
   MISSIONS = SETS[mode].variants[V].missions; FINAL = SETS[mode].variants[V].final;
   DURATION = SETS[mode].durationSec || CONFIG.durationSec;
   state_mode = mode;
+  // --- champs obligatoires : nom de cellule + nombre d'agents ---
+  const tnEl=document.getElementById("teamname"), acEl=document.getElementById("agentcount");
+  const errEl=document.getElementById("introerr");
+  const tn=(tnEl&&tnEl.value||"").trim();
+  const ac=parseInt((acEl&&acEl.value)||"",10);
+  const tnOK=tn.length>0, acOK=(ac>0 && ac<=12);
+  if(!tnOK || !acOK){
+    [tnEl,acEl].forEach(el=>{ if(el) el.classList.remove('invalid','shake'); });
+    if(!tnOK && tnEl){ tnEl.classList.add('invalid','shake'); setTimeout(()=>tnEl.classList.remove('shake'),400); }
+    if(!acOK && acEl){ acEl.classList.add('invalid','shake'); setTimeout(()=>acEl.classList.remove('shake'),400); }
+    if(errEl){ errEl.textContent = !tnOK ? "⚠ Saisissez le nom de votre cellule." : "⚠ Saisissez le nombre d'agents (1 à 12)."; }
+    (!tnOK?tnEl:acEl)?.focus();
+    beep(160,0.18,'sawtooth');
+    return;
+  }
+  [tnEl,acEl].forEach(el=>{ if(el) el.classList.remove('invalid','shake'); });
+  if(errEl) errEl.textContent="";
   initState();
-  const tn=(document.getElementById("teamname").value||"").trim();
-  state.teamName = tn || "CELLULE GHOST"; state.started=true;
-  const ac=parseInt((document.getElementById("agentcount")||{}).value,10);
-  state.agentCount = (ac>0 && ac<=12) ? ac : 6;
+  state.teamName = tn; state.started=true;
+  state.agentCount = ac;
   GAME_ID = 'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   startRegieRemote();
   const relay = SETS[mode].relay;
