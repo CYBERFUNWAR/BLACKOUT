@@ -201,6 +201,13 @@
   .rdot.ok{border-color:var(--green);color:var(--green);background:rgba(47,255,154,.08);box-shadow:0 0 8px rgba(47,255,154,.2)}
   .relay-status{font-size:11px;letter-spacing:.08em;color:var(--grey);margin-top:4px}
   .relay-status.on{color:var(--green)} .relay-status.off{color:var(--mag)}
+  .defi-overlay{position:fixed;inset:0;z-index:4000;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(2,4,7,.92);backdrop-filter:blur(3px);animation:defiIn .25s ease}
+  .defi-overlay.on{display:flex}
+  @keyframes defiIn{from{opacity:0}to{opacity:1}}
+  .defi-box{width:100%;max-width:820px;border:1px solid var(--mag);border-radius:8px;background:linear-gradient(180deg,#0a0f16,#0d141d);padding:26px 26px 22px;box-shadow:0 0 50px rgba(255,46,136,.22),inset 0 0 40px rgba(255,46,136,.05)}
+  .defi-tag{font-size:12px;letter-spacing:.22em;color:var(--mag);font-weight:700}
+  .defi-ttl{font-size:30px;color:#eaf6ff;font-weight:700;letter-spacing:.05em;margin:6px 0 8px}
+  .defi-desc{font-size:14px;color:var(--grey);margin-bottom:20px;line-height:1.55;max-width:680px}
   #adminclear{display:none;margin-top:14px;max-width:380px;border:1px solid #5a1230;border-radius:5px;padding:16px;background:#120810}
   #adminclear.open{display:block;animation:fade .25s}
   #adminclear .aclabel{font-size:10px;letter-spacing:.18em;color:var(--mag);font-weight:700;margin-bottom:10px}
@@ -492,6 +499,31 @@
     </div>
     <div id="relaymsg" class="msgline"></div>
   </section>
+
+  <!-- ============ DÉFI COLLECTIF (overlay) ============ -->
+  <div id="defi" class="defi-overlay">
+    <div class="defi-box">
+      <div class="defi-tag" id="defitag">// DÉFI COLLECTIF</div>
+      <div class="defi-ttl" id="defittl">CHALLENGE</div>
+      <div class="defi-desc" id="defidesc"></div>
+      <div class="relay-wrap">
+        <div class="relay-qr">
+          <div id="defiqr"></div>
+          <div class="scanlbl">📱 SCANNEZ POUR REJOINDRE LE DÉFI</div>
+          <div class="sess" id="defisess">—</div>
+        </div>
+        <div class="relay-side">
+          <div class="relay-count"><b id="dvalid">0</b> <span>/</span> <span id="dtarget">6</span></div>
+          <div class="relay-sub">AGENTS AYANT RÉUSSI</div>
+          <div class="relay-bar"><i id="defifill"></i></div>
+          <div class="relay-dots" id="defidots"></div>
+          <div id="defistatus" class="relay-status">connexion au réseau…</div>
+          <div class="relay-url" id="defiurl"></div>
+        </div>
+      </div>
+      <div id="defimsg" class="msgline"></div>
+    </div>
+  </div>
 
   <!-- ============ CLASSEMENT ============ -->
   <section id="ranking" class="screen">
@@ -3109,7 +3141,7 @@ function norm(s){return (s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
 
 function initState(){
   state = { idx:0, final:false, finished:false, remaining:DURATION,
-            paused:false, hintShown:0, hintsTotal:0, wrongTotal:0, regiePenalty:0, got:[], started:false, teamName:"CELLULE GHOST" };
+            paused:false, hintShown:0, hintsTotal:0, wrongTotal:0, regiePenalty:0, got:[], started:false, defiFired:false, teamName:"CELLULE GHOST" };
 }
 
 /* ===================== SON ===================== */
@@ -3417,12 +3449,18 @@ function submitCode(){
     if(m.vault) log('<span class="a">[COFFRE]</span> cadenas désactivé — dossier scellé à récupérer dans le coffre.');
     state.idx++;
     publishLive(); fireHook('verrou');
-    if(state.idx>=MISSIONS.length){
-      state.final=true;
-      log('<span class="c">[GHOST://]</span> les '+MISSIONS.length+' verrous sont tombés. Reconstituez la commande BLACKOUT.');
-      setTimeout(()=>{renderMission(); inp.focus();},900);
+    var _proceed=function(){
+      if(state.idx>=MISSIONS.length && !state.final){
+        state.final=true;
+        log('<span class="c">[GHOST://]</span> les '+MISSIONS.length+' verrous sont tombés. Reconstituez la commande BLACKOUT.');
+      }
+      renderMission(); var _ii=document.getElementById('code'); if(_ii) _ii.focus();
+    };
+    if(shouldFireDefi()){
+      state.defiFired=true;
+      setTimeout(function(){ launchDefi(randDefi(), {onComplete:_proceed}); }, 650);
     } else {
-      setTimeout(()=>{renderMission(); inp.focus();},900);
+      setTimeout(_proceed, 900);
     }
   } else {
     state.wrongTotal++;
@@ -3707,6 +3745,79 @@ function regieSkipRelay(){
   if(document.getElementById('relay').classList.contains('active')){ regiePenalize('relay'); toggleRegie(false); relayComplete(true); }
 }
 
+/* ===================== DÉFI COLLECTIF (mini-jeux sur téléphone) ===================== */
+var DEFIS={
+  sequence:{label:'MÉMOIRE NEURONALE', desc:"Chaque agent reçoit sur son téléphone une séquence neuronale à mémoriser puis reproduire. Le hack ne reprend que lorsque TOUTE l'équipe a synchronisé sa mémoire."},
+  decode:{label:'DÉCRYPTAGE BINAIRE', desc:"NEXUS verrouille ses accès en binaire. Chaque agent décode les octets sur son téléphone. Le hack reprend quand toute l'équipe a reconstitué la clé."},
+  reflex:{label:'PURGE DES INTRUSIONS', desc:"Des processus hostiles envahissent chaque nœud. Chaque agent purge les intrusions sur son téléphone. Le hack reprend quand tous les nœuds sont purgés."}
+};
+function randDefi(){ var k=Object.keys(DEFIS); return k[Math.floor(Math.random()*k.length)]; }
+var DEFI_SESSION=null, defiUnsub=null, defiActive=false, defiOnDone=null;
+function defiURL(v){ return relayBase()+'#S='+DEFI_SESSION+'&V='+v; }
+function launchDefi(variant, opts){
+  opts=opts||{};
+  if(defiActive) return;
+  variant = DEFIS[variant] ? variant : randDefi();
+  defiActive=true; defiOnDone=(typeof opts.onComplete==='function')?opts.onComplete:null;
+  DEFI_SESSION=genSessionCode();
+  var meta=DEFIS[variant];
+  document.getElementById('defitag').textContent='// DÉFI COLLECTIF — '+meta.label;
+  document.getElementById('defittl').textContent=meta.label;
+  document.getElementById('defidesc').textContent=meta.desc;
+  document.getElementById('defisess').textContent='SESSION '+DEFI_SESSION;
+  document.getElementById('dtarget').textContent=(state&&state.agentCount)?state.agentCount:'—';
+  document.getElementById('defiurl').textContent=defiURL(variant);
+  document.getElementById('defimsg').textContent='';
+  var box=document.getElementById('defiqr'); box.innerHTML='';
+  try{ var qr=qrcode(0,'M'); qr.addData(defiURL(variant)); qr.make(); box.innerHTML=qr.createImgTag(5,2); }catch(e){ box.textContent='QR indisponible'; }
+  updateDefiCount(0,0);
+  document.getElementById('defi').classList.add('on');
+  log('<span class="c">[GHOST://]</span> défi collectif injecté : <span class="g">'+meta.label+'</span>. Chaque agent scanne le QR affiché à l\'écran.');
+  try{ speak('Défi collectif. '+meta.label+'. Chaque agent doit réussir son épreuve sur son terminal.'); }catch(e){}
+  var st=document.getElementById('defistatus');
+  if(window.RELAY && window.RELAY.online){
+    st.className='relay-status on'; st.textContent='🌐 défi en ligne — en attente des agents';
+    if(defiUnsub){ try{defiUnsub();}catch(e){} }
+    defiUnsub=window.RELAY.listen(DEFI_SESSION, onDefiUpdate);
+  } else {
+    st.className='relay-status off'; st.textContent='⚠ hors ligne — « Forcer le défi » en régie.';
+  }
+  beep(520,0.1); setTimeout(()=>beep(300,0.14,'sawtooth'),130);
+}
+function updateDefiCount(joined,validated){
+  var dv=document.getElementById('dvalid'); if(dv) dv.textContent=validated;
+  var target=(state&&state.agentCount)||1;
+  var fill=document.getElementById('defifill'); if(fill) fill.style.width=Math.min(100,(validated/target*100))+'%';
+  var dots=document.getElementById('defidots'); if(!dots) return; var h='';
+  for(var i=0;i<target;i++){ var cls='rdot'; if(i<validated)cls+=' ok'; else if(i<joined)cls+=' join'; h+='<div class="'+cls+'">'+(i<validated?'✓':(i+1))+'</div>'; }
+  dots.innerHTML=h;
+}
+function onDefiUpdate(players){
+  if(!defiActive) return;
+  var joined=players.length, validated=players.filter(function(p){return p&&p.validated;}).length;
+  updateDefiCount(joined,validated);
+  var st=document.getElementById('defistatus'); if(st){ st.className='relay-status on'; st.textContent='🌐 '+joined+' agent(s) · '+validated+' réussi(s)'; }
+  if(state && state.agentCount>0 && validated>=state.agentCount) defiComplete(false);
+}
+function defiComplete(forced){
+  if(!defiActive) return; defiActive=false;
+  if(defiUnsub){ try{defiUnsub();}catch(e){} defiUnsub=null; }
+  if(window.RELAY && window.RELAY.cleanup && DEFI_SESSION){ try{window.RELAY.cleanup(DEFI_SESSION);}catch(e){} }
+  var msg=document.getElementById('defimsg'); if(msg){ msg.className='msgline ok'; msg.textContent=forced?'✓ DÉFI FORCÉ PAR L\'ANIMATEUR — le hack reprend.':'✓ ÉQUIPE SYNCHRONISÉE — défi collectif réussi, le hack reprend.'; }
+  beep(660,0.1); setTimeout(()=>beep(990,0.15,'sine'),140);
+  log('<span class="g">[DÉFI]</span> '+(forced?'forcé par l\'animateur.':'réussi par toute l\'équipe.'));
+  var done=defiOnDone; defiOnDone=null;
+  setTimeout(function(){ var ov=document.getElementById('defi'); if(ov) ov.classList.remove('on'); if(typeof done==='function') done(); }, 1250);
+}
+function forceDefi(){ if(defiActive) defiComplete(true); }
+function shouldFireDefi(){
+  if(!state || state.defiFired || state.final) return false;
+  if(state.idx>=MISSIONS.length) return false;
+  if(CONFIG && CONFIG.defiCollectif===false) return false;
+  var after=Math.max(1, Math.floor(MISSIONS.length/2));   // ex : 4 verrous -> après le 2e
+  return state.idx===after;
+}
+
 /* ===================== BREACH PROTOCOL ===================== */
 let BR=null, breachInt=null;
 function genBreach(cfg){
@@ -3969,6 +4080,16 @@ function regieRemoteApply(c){
       break;
     case 'relay':
       regieSkipRelay(); regieAck(c,'Relais forcé (−'+((CONFIG.regiePenalties||{}).relay||0)+' pts).');
+      break;
+    case 'defi':
+      if(state && !state.finished){
+        if(defiActive){ regieAck(c,'Un défi est déjà en cours.'); }
+        else { var _v=(c.variant&&DEFIS[c.variant])?c.variant:randDefi(); launchDefi(_v,{}); regieAck(c,'Défi lancé : '+DEFIS[_v].label+'.'); }
+      } else regieAck(c,'Aucune partie active.');
+      break;
+    case 'defiforce':
+      if(defiActive){ forceDefi(); regieAck(c,'Défi forcé — le hack reprend.'); }
+      else regieAck(c,'Aucun défi en cours.');
       break;
     case 'alert':
       oracle('periodic');

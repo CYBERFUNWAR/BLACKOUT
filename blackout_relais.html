@@ -384,11 +384,140 @@ function sfx(name, fb){
 
 /* ===== routage d'affichage ===== */
 window.addEventListener('resize', ()=>{ if(PZ) drawLinks(); });
+
+/* =========================================================
+   MINI-JEUX COLLECTIFS (défis) — routés par V=
+   Chaque mini-jeu appelle solved() à la réussite (comme le relais).
+   Pas d'échec bloquant : une erreur fait recommencer, jamais perdre.
+   ========================================================= */
+var MINI = {};
+function miniShell(tag,ttl,sub,inner){
+  document.getElementById('view').innerHTML=
+   '<div class="card">'+
+     '<div class="tag">'+tag+'</div>'+
+     '<div class="ttl">'+ttl+'</div>'+
+     '<div class="sub">'+sub+'</div>'+
+     '<div class="sess">SESSION '+(SESSION||'—')+' · AGENT '+PID.slice(1,5).toUpperCase()+'</div>'+
+     inner+
+     '<div id="msg" class="msg"></div>'+
+     '<div id="status" class="status '+(online?'on':'off')+'">'+(online?'🌐 connecté au nœud':'⚠ hors ligne — préviens l\'animateur')+'</div>'+
+   '</div>';
+}
+
+/* ---------- 1) MÉMOIRE NEURONALE (Simon) ---------- */
+MINI.sequence=function(){
+  var PADS=[{c:'#00e5ff',g:'◆'},{c:'#ff2e88',g:'▲'},{c:'#2fff9a',g:'●'},{c:'#ffce54',g:'■'}];
+  var rounds=[3,4,5], round=0, seq=[], input=[], lock=true;
+  miniShell('// DÉFI COLLECTIF — MÉMOIRE NEURONALE',
+    'Séquence neuronale',
+    'Mémorisez l\'ordre d\'allumage des nœuds, puis reproduisez-le. 3 séquences à valider. La moindre erreur relance la séquence.',
+    '<div id="seqprog" class="mini-prog"></div>'+
+    '<div class="pad-grid">'+PADS.map(function(p,i){return '<button class="pad" id="pad'+i+'" style="--pc:'+p.c+'" onclick="seqTap('+i+')"><span>'+p.g+'</span></button>';}).join('')+'</div>'+
+    '<button class="btn" id="seqreplay" onclick="seqShow()">↻ Revoir la séquence</button>');
+  injectMiniCSS();
+  updSeqProg();
+  function updSeqProg(){ var e=document.getElementById('seqprog'); if(e) e.innerHTML='SÉQUENCE '+(round+1)+'/3 · longueur '+rounds[round]; }
+  window.seqStart=function(){ seq=[]; input=[]; for(var i=0;i<rounds[round];i++) seq.push(Math.floor(Math.random()*4)); updSeqProg(); seqShow(); };
+  window.seqShow=function(){ lock=true; input=[]; setMsg('Observez…'); var i=0;
+    var iv=setInterval(function(){ if(i>=seq.length){ clearInterval(iv); lock=false; setMsg('À vous : reproduisez la séquence.'); return; }
+      flashPad(seq[i]); i++; }, 640); };
+  function flashPad(idx){ var el=document.getElementById('pad'+idx); if(!el) return; el.classList.add('lit'); beep(360+idx*140,.18); setTimeout(function(){ el.classList.remove('lit'); }, 360); }
+  window.seqTap=function(idx){ if(lock) return; flashPad(idx); input.push(idx);
+    var k=input.length-1;
+    if(input[k]!==seq[k]){ lock=true; setMsg('✕ Erreur de séquence — on recommence.','err'); beep(130,.25); buzz(120); setTimeout(window.seqShow,700); return; }
+    if(input.length===seq.length){ lock=true; round++;
+      if(round>=rounds.length){ setMsg('✓ Mémoire synchronisée.','ok'); solved(); }
+      else { setMsg('✓ Séquence '+round+' validée.','ok'); beep(1200,.15); setTimeout(window.seqStart,850); } }
+  };
+  setTimeout(window.seqStart,600);
+};
+
+/* ---------- 2) DÉCRYPTAGE BINAIRE ---------- */
+MINI.decode=function(){
+  var total=4, done=0;
+  miniShell('// DÉFI COLLECTIF — DÉCRYPTAGE BINAIRE',
+    'Conversion binaire',
+    'NEXUS chiffre ses accès en binaire 8 bits. Lisez l\'octet et choisissez sa valeur décimale. 4 octets à décoder.',
+    '<div id="decprog" class="mini-prog"></div>'+
+    '<div id="decbyte" class="dec-byte"></div>'+
+    '<div id="decopts" class="dec-opts"></div>');
+  injectMiniCSS();
+  function nextByte(){
+    var _p=document.getElementById('decprog'), _b=document.getElementById('decbyte'), _o=document.getElementById('decopts');
+    if(!_p||!_b||!_o) return;   // vue déjà remplacée (partie gagnée)
+    _p.innerHTML='OCTET '+(done+1)+'/'+total;
+    var n=20+Math.floor(Math.random()*216); // 20..235
+    var bin=('00000000'+n.toString(2)).slice(-8);
+    _b.innerHTML=bin.split('').map(function(b){return '<span class="bit b'+b+'">'+b+'</span>';}).join('');
+    var opts=[n]; while(opts.length<4){ var d=n+(Math.floor(Math.random()*41)-20); if(d>=0&&d<=255&&opts.indexOf(d)<0) opts.push(d); }
+    for(var i=opts.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=opts[i];opts[i]=opts[j];opts[j]=t; }
+    _o.innerHTML=opts.map(function(o){return '<button class="opt-btn" onclick="decPick('+o+','+n+')">'+o+'</button>';}).join('');
+    setMsg('Convertissez l\'octet en décimal.');
+  }
+  window.decPick=function(choice,ans){
+    if(choice===ans){ done++; beep(1046,.14); if(done>=total){ setMsg('✓ Clé reconstituée.','ok'); solved(); } else { setMsg('✓ Octet validé.','ok'); setTimeout(nextByte,500); } }
+    else { setMsg('✕ Mauvaise valeur — recalculez (poids : 128·64·32·16·8·4·2·1).','err'); beep(130,.22); buzz(120); }
+  };
+  nextByte();
+};
+
+/* ---------- 3) PURGE DES INTRUSIONS (réflexe) ---------- */
+MINI.reflex=function(){
+  var TARGET=15, hit=0, live=true, timer=null;
+  miniShell('// DÉFI COLLECTIF — PURGE DES INTRUSIONS',
+    'Purge active',
+    'Des processus hostiles s\'infiltrent dans votre nœud. Touchez-les pour les purger. Atteignez '+TARGET+' purges pour sécuriser le nœud.',
+    '<div id="rxprog" class="mini-prog"></div>'+
+    '<div class="rx-grid" id="rxgrid">'+[0,1,2,3,4,5,6,7,8].map(function(i){return '<button class="rx-cell" id="rx'+i+'" onclick="rxTap('+i+')"></button>';}).join('')+'</div>');
+  injectMiniCSS();
+  function upd(){ var e=document.getElementById('rxprog'); if(e) e.innerHTML='PURGES '+hit+'/'+TARGET; }
+  upd(); setMsg('Touchez les intrusions rouges dès qu\'elles apparaissent.');
+  var active=-1;
+  function spawn(){ if(!live) return;
+    if(active>=0){ var old=document.getElementById('rx'+active); if(old) old.classList.remove('intr'); }
+    active=Math.floor(Math.random()*9);
+    var el=document.getElementById('rx'+active); if(el) el.classList.add('intr');
+    timer=setTimeout(spawn, 820-Math.min(400,hit*22));
+  }
+  window.rxTap=function(i){ if(!live) return;
+    if(i===active){ hit++; beep(900+hit*18,.06); var el=document.getElementById('rx'+i); if(el){el.classList.remove('intr');el.classList.add('purged');setTimeout(function(){el.classList.remove('purged');},160);} active=-1; upd();
+      if(hit>=TARGET){ live=false; clearTimeout(timer); setMsg('✓ Nœud purgé — intrusion neutralisée.','ok'); solved(); return; }
+    } else { beep(150,.08); buzz(60); }
+  };
+  spawn();
+};
+
+function injectMiniCSS(){
+  if(document.getElementById('minicss')) return;
+  var st=document.createElement('style'); st.id='minicss';
+  st.textContent=
+  '.mini-prog{font-size:11px;letter-spacing:.14em;color:var(--amber);margin:2px 0 14px;font-weight:700}'+
+  '.pad-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 14px}'+
+  '.pad{aspect-ratio:1/1;border:2px solid var(--line);border-radius:10px;background:#0b121b;display:flex;align-items:center;justify-content:center;font-size:40px;color:var(--pc);opacity:.45;transition:opacity .08s,box-shadow .08s,transform .06s;cursor:pointer}'+
+  '.pad:active{transform:scale(.96)}'+
+  '.pad.lit{opacity:1;box-shadow:0 0 28px var(--pc),inset 0 0 22px var(--pc);border-color:var(--pc)}'+
+  '.dec-byte{display:flex;gap:6px;justify-content:center;margin:4px 0 16px}'+
+  '.dec-byte .bit{flex:1;max-width:38px;text-align:center;padding:12px 0;border:1px solid var(--line);border-radius:5px;font-size:22px;font-weight:700;background:#0b121b}'+
+  '.dec-byte .b1{color:var(--cyan);border-color:var(--cyan-d);box-shadow:0 0 10px rgba(0,229,255,.25)}'+
+  '.dec-byte .b0{color:var(--grey)}'+
+  '.dec-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}'+
+  '.opt-btn{font-family:var(--mono);font-weight:700;font-size:22px;color:#eaf6ff;background:#0b121b;border:1px solid var(--cyan-d);border-radius:6px;padding:16px 0;cursor:pointer}'+
+  '.opt-btn:active{transform:scale(.97);background:#0e1824}'+
+  '.rx-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:6px 0 10px}'+
+  '.rx-cell{aspect-ratio:1/1;border:1px solid var(--line);border-radius:8px;background:#0a111a;cursor:pointer;transition:background .06s,box-shadow .06s,transform .05s}'+
+  '.rx-cell:active{transform:scale(.96)}'+
+  '.rx-cell.intr{background:radial-gradient(circle,#ff2e88,#7a0030);border-color:var(--mag);box-shadow:0 0 22px var(--mag),inset 0 0 14px rgba(255,46,136,.6)}'+
+  '.rx-cell.purged{background:radial-gradient(circle,#2fff9a,#065a35);border-color:var(--green);box-shadow:0 0 18px var(--green)}';
+  document.head.appendChild(st);
+}
+
+
 function boot(){
   if(!SESSION){
     document.getElementById('view').innerHTML='<div class="card"><div class="notice">Aucune session détectée.<br><br>Scannez le <b>QR code affiché sur l\'écran de jeu</b> pour vous connecter au nœud-relais de votre équipe.</div></div>';
     return;
   }
+  if(typeof MINI!=='undefined' && MINI[VARIANT]){ writePlayer(false); MINI[VARIANT](); return; }
   PZ=genPuzzle(); renderPuzzle();
   writePlayer(false);   // signale "connecté" (pas encore validé)
 }

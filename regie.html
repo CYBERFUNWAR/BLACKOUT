@@ -107,6 +107,10 @@
   .op.pen:active{background:rgba(255,45,85,.1)}
   .op.glitch{border-color:var(--mag);color:var(--mag)}
   .op.glitch:active{background:rgba(255,61,240,.1)}
+  .defi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .op.defi{border-color:#3a2a6a;color:#b79cff}
+  .op.defi.surprise{border-color:var(--mag,#ff2e88);color:var(--mag,#ff2e88)}
+  .defibox{margin-top:4px}
 </style>
 </head>
 <body>
@@ -178,6 +182,16 @@
     <div class="ack" id="ack">En attente d'une action…</div>
     <div class="muted" style="margin-top:8px">« Passer le relais » n'est utile que pendant l'étape du relais — utilise « Débloquer verrou » le reste du temps.</div>
     <button class="btn ghost" data-cmd="relay" style="margin-top:4px">⇥ Forcer le relais (verrou 00)</button>
+    <div class="defibox">
+      <label style="display:block;font-size:12px;color:var(--dim);margin:16px 0 8px">🎮 Lancer un défi collectif (QR à l'écran — chaque agent joue sur son tél)</label>
+      <div class="defi-grid">
+        <button class="op defi" data-cmd="defi" data-variant="sequence">🧠 Mémoire<small>séquence neuronale</small></button>
+        <button class="op defi" data-cmd="defi" data-variant="decode">🔢 Décryptage<small>binaire</small></button>
+        <button class="op defi" data-cmd="defi" data-variant="reflex">⚡ Purge<small>réflexe / intrusions</small></button>
+        <button class="op defi surprise" data-cmd="defi">🎲 Surprends-moi<small>défi aléatoire</small></button>
+      </div>
+      <button class="btn ghost" data-cmd="defiforce" style="margin-top:8px">⇥ Forcer le défi en cours</button>
+    </div>
     <div class="msgbox">
       <label style="display:block;font-size:12px;color:var(--dim);margin:14px 0 6px">Message libre affiché comme ORACLE (log joueurs + voix)</label>
       <input id="msgInput" type="text" maxlength="200" autocomplete="off" placeholder="Ex : Je vous observe. Verrou 03 renforcé.">
@@ -329,7 +343,8 @@ document.querySelectorAll('[data-cmd]').forEach(function(b){
     var cmd=b.getAttribute('data-cmd');
     var cf=b.getAttribute('data-confirm');
     if(cf && !confirm(cf==='1'?'Réinitialiser la partie de cette table ?':cf)) return;
-    sendCmd(cmd);
+    var vr=b.getAttribute('data-variant');
+    sendCmd(cmd, vr?{variant:vr}:null);
   });
 });
 (function(){ var mb=$('msgSend'); if(mb) mb.addEventListener('click',sendMessage);
