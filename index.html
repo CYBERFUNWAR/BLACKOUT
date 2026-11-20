@@ -4003,6 +4003,13 @@ function regieRemoteApply(c){
         } else regieAck(c,'Message vide.');
       }
       break;
+    case 'glitch':
+      sfx('error', ()=>beep(160,0.18,'sawtooth'));
+      try{ broadcastPhone('glitch'); }catch(e){}
+      { const fx=document.getElementById('alertfx'); if(fx){ fx.classList.add('on'); setTimeout(()=>{ if(!state || !state.remaining || state.remaining>CONFIG.critAtSec) fx.classList.remove('on'); },700); } }
+      log('<span class="m">[GLITCH // ORACLE]</span> Surcharge du signal.');
+      regieAck(c,'Son glitch déclenché (PC + téléphones).');
+      break;
     default:
       regieAck(c,'Commande inconnue.');
   }
