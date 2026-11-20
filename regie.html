@@ -103,6 +103,8 @@
   .ack.wait{color:var(--amber)}
   .codes{margin-top:8px;font-size:12px;color:var(--cyan);word-break:break-word;line-height:1.5}
   .hide{display:none !important}
+  .op.pen{border-color:var(--red);color:var(--red)}
+  .op.pen:active{background:rgba(255,45,85,.1)}
 </style>
 </head>
 <body>
@@ -164,6 +166,7 @@
       <button class="op time"  data-cmd="addtime">⏱ +5 minutes<small>pénalité au score</small></button>
       <button class="op pause" data-cmd="pause">⏸ Pause / Reprise<small>chrono</small></button>
       <button class="op skip"  data-cmd="skip">⏭ Débloquer verrou<small>pénalité au score</small></button>
+      <button class="op pen"   data-cmd="penalty" data-confirm="Appliquer la pénalité triche : −5 min et −500 pts ?">🚫 Pénalité triche<small>−5 min / −500 pts</small></button>
       <button class="op alert" data-cmd="alert">⚠ Alerte ORACLE<small>glitch + voix</small></button>
       <button class="op reveal" data-cmd="reveal">👁 Voir les codes<small>pour toi</small></button>
       <button class="op reset" data-cmd="reset" data-confirm="1">⟲ Réinitialiser la partie</button>
@@ -172,6 +175,11 @@
     <div class="ack" id="ack">En attente d'une action…</div>
     <div class="muted" style="margin-top:8px">« Passer le relais » n'est utile que pendant l'étape du relais — utilise « Débloquer verrou » le reste du temps.</div>
     <button class="btn ghost" data-cmd="relay" style="margin-top:4px">⇥ Forcer le relais (verrou 00)</button>
+    <div class="msgbox">
+      <label style="display:block;font-size:12px;color:var(--dim);margin:14px 0 6px">Message libre affiché comme ORACLE (log joueurs + voix)</label>
+      <input id="msgInput" type="text" maxlength="200" autocomplete="off" placeholder="Ex : Je vous observe. Verrou 03 renforcé.">
+      <button class="btn" id="msgSend" style="margin-top:8px">📡 Diffuser comme ORACLE</button>
+    </div>
   </div>
 
   <div class="status"><span class="dot" id="netdot"></span><span id="netlbl">connexion au réseau…</span></div>
@@ -298,20 +306,31 @@ $('backBtn').onclick=function(){
 };
 
 /* envoi d'une commande */
-function sendCmd(cmd){
+function sendCmd(cmd, extra){
   if(!curGame || !DB){ return; }
   var nonce=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  var payload={cmd:cmd,nonce:nonce,ts:Date.now()};
+  if(extra){ for(var k in extra){ payload[k]=extra[k]; } }
   var a=$('ack'); a.className='ack wait'; a.textContent='⟳ envoi : '+cmd+'…';
-  FS.setDoc(FS.doc(DB,REGIE_COL,curGame),{cmd:cmd,nonce:nonce,ts:Date.now()},{merge:true})
+  FS.setDoc(FS.doc(DB,REGIE_COL,curGame),payload,{merge:true})
     .catch(function(){ a.className='ack'; a.textContent='✕ envoi impossible (règles Firebase ?)'; });
+}
+function sendMessage(){
+  var el=$('msgInput'); var t=(el&&el.value||'').trim();
+  if(!t){ var a=$('ack'); a.className='ack'; a.textContent='✎ écris un message d\'abord.'; return; }
+  sendCmd('message',{text:t});
+  if(el) el.value='';
 }
 document.querySelectorAll('[data-cmd]').forEach(function(b){
   b.addEventListener('click',function(){
     var cmd=b.getAttribute('data-cmd');
-    if(b.getAttribute('data-confirm') && !confirm('Réinitialiser la partie de cette table ?')) return;
+    var cf=b.getAttribute('data-confirm');
+    if(cf && !confirm(cf==='1'?'Réinitialiser la partie de cette table ?':cf)) return;
     sendCmd(cmd);
   });
 });
+(function(){ var mb=$('msgSend'); if(mb) mb.addEventListener('click',sendMessage);
+  var mi=$('msgInput'); if(mi) mi.addEventListener('keydown',function(e){ if(e.key==='Enter') sendMessage(); }); })();
 
 /* ===== Fond : pluie de données ===== */
 (function(){try{

@@ -3626,7 +3626,7 @@ function loseGame(){
 function continueAnyway(){
   state.finished=false; state.remaining=DURATION; state.paused=true;
   show('game'); renderTimer();
-  log('<span class="a">[RÉGIE]</span> mode libre activé — chrono en pause.');
+  log('<span class="m">[GLITCH // ORACLE]</span> mode libre activé — chrono en pause.');
   document.getElementById('rpause').textContent='▶ Reprendre le chrono';
 }
 function resetGame(){ clearInterval(timerInt); clearInterval(breachInt); stopLivePublish(); stopRegieRemote(); stopAllSfx(); fireHook('reset'); GAME_ID=null; regieUnlocked=false; toggleRegie(false); initState(); show('intro'); }
@@ -3898,16 +3898,16 @@ function regieAuth(){
 function regiePenalize(kind){
   const p=(CONFIG.regiePenalties&&CONFIG.regiePenalties[kind])||0;
   if(p>0 && state){ state.regiePenalty=(state.regiePenalty||0)+p;
-    log('<span class="a">[RÉGIE]</span> pénalité appliquée : −'+p+' pts.'); }
+    log('<span class="m">[GLITCH // ORACLE]</span> pénalité appliquée : −'+p+' pts.'); }
 }
 function regiePause(){
   state.paused=!state.paused;
   document.getElementById('rpause').textContent = state.paused?'▶ Reprendre le chrono':'⏸ Mettre le chrono en pause';
-  log('<span class="a">[RÉGIE]</span> chrono '+(state.paused?'en pause':'repris')+'.');
+  log('<span class="m">[GLITCH // ORACLE]</span> chrono '+(state.paused?'en pause':'repris')+'.');
 }
 function regieAddTime(){
   state.remaining=Math.min(DURATION, state.remaining+300); renderTimer();
-  log('<span class="a">[RÉGIE]</span> +5:00 ajoutées au chrono.');
+  log('<span class="m">[GLITCH // ORACLE]</span> +5:00 ajoutées au chrono.');
   regiePenalize('addTime');
 }
 function regieShowSol(){
@@ -3921,7 +3921,7 @@ function regieSkip(){
   if(state.final){ winGame(); toggleRegie(false); return; }
   regiePenalize('skip');
   state.got.push(state.idx); renderFrags();
-  log('<span class="a">[RÉGIE]</span> verrou 0'+(state.idx+1)+' débloqué manuellement.');
+  log('<span class="m">[GLITCH // ORACLE]</span> verrou 0'+(state.idx+1)+' débloqué manuellement.');
   state.idx++;
   if(state.idx>=MISSIONS.length){ state.final=true; }
   renderMission();
@@ -3950,7 +3950,6 @@ function regieRemoteApply(c){
   if(!c || !c.cmd || !c.nonce) return;
   if(_regieDone.indexOf(c.nonce)>=0) return;      // déjà traité
   _regieDone.push(c.nonce); if(_regieDone.length>30) _regieDone.shift();
-  log('<span class="a">[RÉGIE DISTANTE]</span> commande reçue : '+esc(c.cmd)+'.');
   switch(c.cmd){
     case 'hint':
       if(state && !state.finished){ nextHint(); regieAck(c,'Indice affiché sur l\'écran de jeu.'); }
@@ -3982,6 +3981,27 @@ function regieRemoteApply(c){
     case 'reset':
       regieAck(c,'Partie réinitialisée.');
       setTimeout(()=>resetGame(),300);
+      break;
+    case 'penalty':
+      if(state && !state.finished){
+        state.remaining=Math.max(0, state.remaining-300); renderTimer();
+        state.regiePenalty=(state.regiePenalty||0)+500;
+        log('<span class="m">[GLITCH // ORACLE]</span> Intrusion non autorisée détectée. Sanction : −5:00 et −500 pts.');
+        oracle('wrong');
+        { const fx=document.getElementById('alertfx'); if(fx){ fx.classList.add('on'); setTimeout(()=>{ if(state && state.remaining>CONFIG.critAtSec) fx.classList.remove('on'); },1600); } }
+        regieAck(c,'Pénalité triche appliquée : −5:00 / −500 pts.');
+      } else regieAck(c,'Aucune partie active.');
+      break;
+    case 'message':
+      { var _txt=(c.text||'').toString().slice(0,200).trim();
+        if(_txt){
+          log('<span class="o">[ORACLE]</span> '+esc(_txt));
+          try{ speak(_txt); }catch(e){}
+          try{ broadcastPhone('speak', _txt); }catch(e){}
+          { const fx=document.getElementById('alertfx'); if(fx){ fx.classList.add('on'); setTimeout(()=>{ if(!state || !state.remaining || state.remaining>CONFIG.critAtSec) fx.classList.remove('on'); },1400); } }
+          regieAck(c,'Message diffusé aux joueurs.');
+        } else regieAck(c,'Message vide.');
+      }
       break;
     default:
       regieAck(c,'Commande inconnue.');
