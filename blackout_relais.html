@@ -407,7 +407,7 @@ function miniShell(tag,ttl,sub,inner){
 /* ---------- 1) MÉMOIRE NEURONALE (Simon) ---------- */
 MINI.sequence=function(){
   var PADS=[{c:'#00e5ff',g:'◆'},{c:'#ff2e88',g:'▲'},{c:'#2fff9a',g:'●'},{c:'#ffce54',g:'■'}];
-  var rounds=[3,4,5], round=0, seq=[], input=[], lock=true;
+  var rounds=[4,5,6], round=0, seq=[], input=[], lock=true;
   miniShell('// DÉFI COLLECTIF — MÉMOIRE NEURONALE',
     'Séquence neuronale',
     'Mémorisez l\'ordre d\'allumage des nœuds, puis reproduisez-le. 3 séquences à valider. La moindre erreur relance la séquence.',
@@ -420,7 +420,7 @@ MINI.sequence=function(){
   window.seqStart=function(){ seq=[]; input=[]; for(var i=0;i<rounds[round];i++) seq.push(Math.floor(Math.random()*4)); updSeqProg(); seqShow(); };
   window.seqShow=function(){ lock=true; input=[]; setMsg('Observez…'); var i=0;
     var iv=setInterval(function(){ if(i>=seq.length){ clearInterval(iv); lock=false; setMsg('À vous : reproduisez la séquence.'); return; }
-      flashPad(seq[i]); i++; }, 640); };
+      flashPad(seq[i]); i++; }, 560); };
   function flashPad(idx){ var el=document.getElementById('pad'+idx); if(!el) return; el.classList.add('lit'); beep(360+idx*140,.18); setTimeout(function(){ el.classList.remove('lit'); }, 360); }
   window.seqTap=function(idx){ if(lock) return; flashPad(idx); input.push(idx);
     var k=input.length-1;
@@ -434,36 +434,53 @@ MINI.sequence=function(){
 
 /* ---------- 2) DÉCRYPTAGE BINAIRE ---------- */
 MINI.decode=function(){
-  var total=4, done=0;
+  var total=5, done=0, parasites=0, locked=false, curAns=null;
+  var WEIGHTS=[128,64,32,16,8,4,2,1];
   miniShell('// DÉFI COLLECTIF — DÉCRYPTAGE BINAIRE',
     'Conversion binaire',
-    'NEXUS chiffre ses accès en binaire 8 bits. Lisez l\'octet et choisissez sa valeur décimale. 4 octets à décoder.',
+    'NEXUS chiffre ses accès en binaire 8 bits. Sous chaque bit, son POIDS. Additionnez les poids des bits allumés (1) pour trouver la valeur, puis touchez-la. 5 octets ; une erreur régénère l\'octet.',
     '<div id="decprog" class="mini-prog"></div>'+
+    '<div class="dec-key">Poids : 128 · 64 · 32 · 16 · 8 · 4 · 2 · 1 — n\'additionnez que les bits à 1</div>'+
     '<div id="decbyte" class="dec-byte"></div>'+
     '<div id="decopts" class="dec-opts"></div>');
   injectMiniCSS();
   function nextByte(){
     var _p=document.getElementById('decprog'), _b=document.getElementById('decbyte'), _o=document.getElementById('decopts');
     if(!_p||!_b||!_o) return;   // vue déjà remplacée (partie gagnée)
-    _p.innerHTML='OCTET '+(done+1)+'/'+total;
+    locked=false;
+    _p.innerHTML='OCTET '+(done+1)+'/'+total+(parasites?'  ·  parasites : '+parasites:'');
     var n=20+Math.floor(Math.random()*216); // 20..235
+    curAns=n;
     var bin=('00000000'+n.toString(2)).slice(-8);
-    _b.innerHTML=bin.split('').map(function(b){return '<span class="bit b'+b+'">'+b+'</span>';}).join('');
-    var opts=[n]; while(opts.length<4){ var d=n+(Math.floor(Math.random()*41)-20); if(d>=0&&d<=255&&opts.indexOf(d)<0) opts.push(d); }
+    _b.innerHTML=bin.split('').map(function(b,i){return '<span class="bitcell"><span class="bit b'+b+'">'+b+'</span><span class="bw">'+WEIGHTS[i]+'</span></span>';}).join('');
+    // leurres plausibles : on bascule 1 ou 2 bits -> valeurs "piège" proches de la vraie somme
+    var opts=[n];
+    while(opts.length<4){
+      var flip=1<<Math.floor(Math.random()*8);
+      var d=(Math.random()<0.5)?(n^flip):(n+(Math.floor(Math.random()*13)-6));
+      if(d>=0&&d<=255&&opts.indexOf(d)<0) opts.push(d);
+    }
     for(var i=opts.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=opts[i];opts[i]=opts[j];opts[j]=t; }
-    _o.innerHTML=opts.map(function(o){return '<button class="opt-btn" onclick="decPick('+o+','+n+')">'+o+'</button>';}).join('');
-    setMsg('Convertissez l\'octet en décimal.');
+    _o.innerHTML=opts.map(function(o){return '<button class="opt-btn" onclick="decPick('+o+')">'+o+'</button>';}).join('');
+    setMsg('Additionnez les poids des bits à 1, puis touchez la valeur.');
   }
-  window.decPick=function(choice,ans){
-    if(choice===ans){ done++; beep(1046,.14); if(done>=total){ setMsg('✓ Clé reconstituée.','ok'); solved(); } else { setMsg('✓ Octet validé.','ok'); setTimeout(nextByte,500); } }
-    else { setMsg('✕ Mauvaise valeur — recalculez (poids : 128·64·32·16·8·4·2·1).','err'); beep(130,.22); buzz(120); }
+  window.decPick=function(choice){
+    if(locked) return;
+    if(choice===curAns){ done++; beep(1046,.14);
+      if(done>=total){ locked=true; setMsg('✓ Clé reconstituée.','ok'); solved(); }
+      else { locked=true; setMsg('✓ Octet validé.','ok'); setTimeout(nextByte,480); }
+    } else {
+      parasites++; locked=true; setMsg('✕ Valeur erronée — parasite injecté, nouvel octet.','err'); beep(130,.22); buzz(120);
+      var _o=document.getElementById('decopts'); if(_o) _o.classList.add('locked');
+      setTimeout(function(){ var o2=document.getElementById('decopts'); if(o2)o2.classList.remove('locked'); nextByte(); }, 850);
+    }
   };
   nextByte();
 };
 
 /* ---------- 3) PURGE DES INTRUSIONS (réflexe) ---------- */
 MINI.reflex=function(){
-  var TARGET=15, hit=0, live=true, timer=null;
+  var TARGET=20, hit=0, live=true, timer=null;
   miniShell('// DÉFI COLLECTIF — PURGE DES INTRUSIONS',
     'Purge active',
     'Des processus hostiles s\'infiltrent dans votre nœud. Touchez-les pour les purger. Atteignez '+TARGET+' purges pour sécuriser le nœud.',
@@ -477,7 +494,7 @@ MINI.reflex=function(){
     if(active>=0){ var old=document.getElementById('rx'+active); if(old) old.classList.remove('intr'); }
     active=Math.floor(Math.random()*9);
     var el=document.getElementById('rx'+active); if(el) el.classList.add('intr');
-    timer=setTimeout(spawn, 820-Math.min(400,hit*22));
+    timer=setTimeout(spawn, 720-Math.min(430,hit*24));
   }
   window.rxTap=function(i){ if(!live) return;
     if(i===active){ hit++; beep(900+hit*18,.06); var el=document.getElementById('rx'+i); if(el){el.classList.remove('intr');el.classList.add('purged');setTimeout(function(){el.classList.remove('purged');},160);} active=-1; upd();
@@ -490,7 +507,7 @@ MINI.reflex=function(){
 
 /* ---------- 4) COFFRE FRÉQUENTIEL (inspiré du coffre portable RE2R) ---------- */
 MINI.freqlock=function(){
-  var ROUNDS=3, round=0, TOL=3.4, HOLD=650;
+  var ROUNDS=4, round=0, TOL=3.0, HOLD=750;
   var ch=[{T:0,C:0,lock:false,ph:0},{T:0,C:0,lock:false,ph:0}];
   var holding=false, holdStart=0, raf=null;
   function channelHTML(i){
@@ -551,7 +568,7 @@ MINI.freqlock=function(){
     var startY=0,startC=0,active=false,lastTick=99;
     el.addEventListener('pointerdown',function(e){ active=true; startY=e.clientY; startC=ch[i].C; try{el.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); },{passive:false});
     el.addEventListener('pointermove',function(e){ if(!active)return; e.preventDefault();
-      var nc=Math.max(0,Math.min(100,startC+(startY-e.clientY)*0.6)); ch[i].C=nc;
+      var nc=Math.max(0,Math.min(100,startC+(startY-e.clientY)*0.55)); ch[i].C=nc;
       var d=Math.abs(nc-ch[i].T); var t=Math.floor(nc);
       if(t!==lastTick && d<16){ lastTick=t; beep(440+(16-d)*42,.018); }
     },{passive:false});
@@ -575,6 +592,12 @@ function injectMiniCSS(){
   '.dec-byte .bit{flex:1;max-width:38px;text-align:center;padding:12px 0;border:1px solid var(--line);border-radius:5px;font-size:22px;font-weight:700;background:#0b121b}'+
   '.dec-byte .b1{color:var(--cyan);border-color:var(--cyan-d);box-shadow:0 0 10px rgba(0,229,255,.25)}'+
   '.dec-byte .b0{color:var(--grey)}'+
+  '.dec-key{font-size:11px;color:var(--amber);letter-spacing:.03em;margin:-6px 0 12px;line-height:1.5}'+
+  '.dec-byte{align-items:flex-start}'+
+  '.bitcell{flex:1;max-width:38px;display:flex;flex-direction:column;align-items:center;gap:3px}'+
+  '.bitcell .bit{width:100%}'+
+  '.bw{font-size:10px;color:var(--grey);letter-spacing:0}'+
+  '.dec-opts.locked{opacity:.4;pointer-events:none}'+
   '.dec-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}'+
   '.opt-btn{font-family:var(--mono);font-weight:700;font-size:22px;color:#eaf6ff;background:#0b121b;border:1px solid var(--cyan-d);border-radius:6px;padding:16px 0;cursor:pointer}'+
   '.opt-btn:active{transform:scale(.97);background:#0e1824}'+
