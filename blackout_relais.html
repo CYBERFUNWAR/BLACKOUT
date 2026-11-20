@@ -86,6 +86,11 @@
   @keyframes irispulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
   @keyframes eyescan{0%,100%{transform:translateY(-13px);opacity:0}50%{transform:translateY(13px);opacity:.55}}
   .cflogo{display:block;max-height:58px;max-width:220px;opacity:.9;margin:18px auto 0;filter:drop-shadow(0 0 10px rgba(0,229,255,.2))}
+
+  #pfxflash{position:fixed;inset:0;z-index:999;pointer-events:none;opacity:0;background:transparent}
+  #pfxflash.on{animation:pfxfl .55s ease-out}
+  @keyframes pfxfl{0%{opacity:.85}100%{opacity:0}}
+  .oracle-eye.alert .iris{fill:#ff6a7f !important;filter:drop-shadow(0 0 10px rgba(255,45,85,.7))}
 </style>
 </head>
 <body>
@@ -101,7 +106,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 /* ===== CONFIG (identique au terminal) ===== */
 const FIREBASE = {
@@ -140,6 +145,44 @@ const SESSION=sessionCode(), PID=playerId();
 /* ===== Firebase ===== */
 let db=null, online=false;
 try{ const app=initializeApp(FIREBASE); db=getFirestore(app); online=true; }catch(e){ online=false; }
+
+/* ===== effets envoyés par le PC (voix ORACLE + glitch) ===== */
+function unlockPhoneAudio(){
+  try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state!=='running') ac.resume(); }catch(e){}
+  try{ if(window.speechSynthesis){ var u=new SpeechSynthesisUtterance(' '); u.volume=0; window.speechSynthesis.speak(u); } }catch(e){}
+}
+window.addEventListener('pointerdown', unlockPhoneAudio);
+window.addEventListener('touchstart', unlockPhoneAudio);
+function speakPhone(txt){
+  try{ if(!window.speechSynthesis || !txt) return;
+    var u=new SpeechSynthesisUtterance(txt); u.lang='fr-FR'; u.pitch=0.5; u.rate=0.95; u.volume=1;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function phoneFlash(col){
+  var fdiv=document.getElementById('pfxflash');
+  if(!fdiv){ fdiv=document.createElement('div'); fdiv.id='pfxflash'; document.body.appendChild(fdiv); }
+  fdiv.style.background=col; fdiv.classList.remove('on'); void fdiv.offsetWidth; fdiv.classList.add('on');
+  var eye=document.querySelector('.oracle-eye');
+  if(eye){ eye.classList.add('alert'); setTimeout(function(){ eye.classList.remove('alert'); }, 1500); }
+}
+var _pfxLast=null, _pfxReady=false;
+function applyPhoneFx(d){
+  if(!d || !d.nonce || d.nonce===_pfxLast) return; _pfxLast=d.nonce;
+  if(d.kind==='speak'){ phoneFlash('rgba(0,229,255,.16)'); speakPhone(d.text); }
+  else if(d.kind==='glitch'){ phoneFlash('rgba(255,45,85,.26)'); sfx('error', function(){ beep(140,0.2); }); }
+}
+if(db && SESSION){
+  try{
+    onSnapshot(doc(db,'phonefx_blackout',SESSION), function(snap){
+      if(!snap.exists()){ _pfxReady=true; return; }
+      var d=snap.data();
+      if(!_pfxReady){ _pfxReady=true; _pfxLast=d.nonce; return; }  // ne pas rejouer l'évènement déjà présent au chargement
+      applyPhoneFx(d);
+    });
+  }catch(e){}
+}
+
 async function writePlayer(validated){
   if(!db||!SESSION) return false;
   try{ await setDoc(doc(db, COLLECTION, SESSION+'_'+PID), {session:SESSION, pid:PID, validated:!!validated, ts:Date.now()}); return true; }

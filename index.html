@@ -3203,11 +3203,20 @@ function oracle(kind){
   const pool=ORACLE_LINES[kind]; if(!pool||!pool.length) return;
   const line=pool[Math.floor(Math.random()*pool.length)];
   log('<span class="o">[ORACLE]</span> '+line);
+  broadcastPhone("speak", line);
   if(CONFIG.sound && CONFIG.voice && typeof window!=='undefined' && window.speechSynthesis){
     speak(line);                                   // la voix EST l'effet d'ORACLE
   } else {
     sfx('oracle', ()=>beep(90,0.18,'sawtooth'));   // sinon, le glitch
   }
+}
+window.PHONEFX = window.PHONEFX || { online:false, async send(){} };
+function broadcastPhone(kind, text){
+  try{
+    if(!RELAY_SESSION || !window.PHONEFX || !window.PHONEFX.online) return;
+    window.PHONEFX.send(RELAY_SESSION, { kind:kind, text:(text||''),
+      nonce:Date.now().toString(36)+Math.random().toString(36).slice(2,6), ts:Date.now() });
+  }catch(e){}
 }
 function log(html){
   const el=document.getElementById('log');
@@ -3417,6 +3426,7 @@ function submitCode(){
     }
   } else {
     state.wrongTotal++;
+    broadcastPhone("glitch");
     const oracleComments=(state.wrongTotal%2===0);
     if(!oracleComments) sfx('error', ()=>beep(160,0.18,"sawtooth"));
     if(oracleComments) oracle('wrong');
@@ -4246,6 +4256,11 @@ initState();
         return fs.onSnapshot(fs.doc(db, GN, id), snap => { cb(snap.exists()? snap.data() : null); });
       },
       async ack(id, data){ await fs.setDoc(fs.doc(db, GN, id), data, {merge:true}); }
+    };
+    const PN = "phonefx_blackout";
+    window.PHONEFX = {
+      online: true,
+      async send(sess, data){ await fs.setDoc(fs.doc(db, PN, sess), data); }
     };
     window.dispatchEvent(new Event("lb-ready"));
   } catch (err) {
