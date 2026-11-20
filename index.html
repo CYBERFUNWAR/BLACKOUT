@@ -336,11 +336,11 @@
   @keyframes blip{0%,100%{opacity:.2}50%{opacity:1}}
 
   /* ---- Séquence de démarrage (boot) ---- */
-  #bootseq{position:fixed;inset:0;z-index:120;background:radial-gradient(1200px 600px at 50% 30%,#06121a,#02060a 70%);
-    display:flex;flex-direction:column;justify-content:center;padding:28px 20px;
+  #bootseq{position:fixed;inset:0;z-index:120;background:radial-gradient(1200px 600px at 50% 24%,#06121a,#02060a 70%);
+    display:flex;flex-direction:column;justify-content:flex-start;align-items:center;padding:7vh 20px 0;
     font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;color:#9fe9c7;overflow:hidden;transition:opacity .55s ease}
   #bootseq.gone{opacity:0;pointer-events:none}
-  #bootseq .bwrap{max-width:680px;margin:0 auto;width:100%}
+  #bootseq .bwrap{width:min(760px,100%);margin:0}
   #bootseq .bline{font-size:13.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word;
     opacity:0;transform:translateY(4px);animation:bfade .22s forwards}
   #bootseq .bline .ok{color:#00e5ff}
@@ -350,8 +350,10 @@
   #bootseq .bbar{height:9px;border:1px solid #13303a;border-radius:6px;margin:16px 0 2px;overflow:hidden;background:#04121a}
   #bootseq .bbar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0097b2,#00e5ff);
     box-shadow:0 0 12px rgba(0,229,255,.8);transition:width .3s ease}
-  #bootseq .bskip{position:absolute;left:0;right:0;bottom:16px;text-align:center;font-size:11px;letter-spacing:2px;color:#3f6670}
-  #bootseq .boot-eye{--eye:150px;display:block;margin:2px auto 20px;line-height:0}
+  #bootseq .bskip{position:absolute;left:0;right:0;bottom:20px;text-align:center;font-size:11px;letter-spacing:2px;color:#3f6670}
+  #bootseq .bskip.ready{color:#00ff9c;font-size:15px;font-weight:700;letter-spacing:1px;text-shadow:0 0 12px rgba(0,255,156,.6);animation:bpulse 1.1s ease-in-out infinite}
+  @keyframes bpulse{0%,100%{opacity:.5}50%{opacity:1}}
+  #bootseq .boot-eye{--eye:168px;display:block;margin:0 auto 22px;line-height:0}
   #bootseq .boot-eye svg{filter:drop-shadow(0 0 26px rgba(0,229,255,.55))}
   #bootseq #bootlog{width:100%;max-height:46vh;overflow:hidden}
   #bootseq .bline{line-height:1.55}
@@ -370,12 +372,12 @@
 </defs></svg>
 <div id="alertfx"></div>
 <div id="bootseq" aria-hidden="true">
+  <div class="oracle-eye boot-eye" id="bootEye"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg></div>
   <div class="bwrap">
-    <div class="oracle-eye boot-eye" id="bootEye"><svg viewBox="0 0 100 100"><circle class="er er1" cx="50" cy="50" r="47"/><circle class="er er2" cx="50" cy="50" r="40"/><circle class="socket" cx="50" cy="50" r="31"/><circle class="iris" cx="50" cy="50" r="22" fill="url(#irisGrad)"/><circle class="pupil" cx="50" cy="50" r="8"/><circle class="glint" cx="43" cy="43" r="3"/><line class="scanl" x1="22" y1="50" x2="78" y2="50"/></svg></div>
     <div id="bootlog"></div>
     <div class="bbar"><i id="bootbar"></i></div>
   </div>
-  <div class="bskip">▸ touchez l’écran ou une touche pour passer</div>
+  <div class="bskip">▸ cliquez ou touchez pour accélérer</div>
 </div>
 <div class="wrap">
 
@@ -4063,10 +4065,12 @@ function playBootSfx(){
   if(file){
     try{
       var a=new Audio(sfxBase()+file); a.volume=(CONFIG.sfxVolume!=null?CONFIG.sfxVolume:0.85);
-      a.addEventListener('error', function(){ bootSynth(); });   // mp3 absent -> synthé
+      // ne marque "joué" que si la lecture démarre vraiment ; sinon (fichier absent) -> son synthétisé
+      a.addEventListener('playing', function(){ _bootSfxPlayed=true; _sfxPlaying.push(a); });
+      a.addEventListener('error', function(){ if(!_bootSfxPlayed) bootSynth(); });
       var pr=a.play();
-      if(pr && pr.then){ pr.then(function(){ _bootSfxPlayed=true; _sfxPlaying.push(a); }).catch(function(){ bootSynth(); }); return; }
-      _bootSfxPlayed=true; _sfxPlaying.push(a); return;
+      if(pr && pr.catch){ pr.catch(function(){ if(!_bootSfxPlayed) bootSynth(); }); }
+      return;
     }catch(e){}
   }
   bootSynth();
@@ -4084,65 +4088,91 @@ function runBoot(){
   document.addEventListener('pointerdown',_bootAudioUnlock);
   document.addEventListener('keydown',_bootAudioUnlock);
   document.addEventListener('touchstart',_bootAudioUnlock);
-  var logEl=document.getElementById("bootlog"), bar=document.getElementById("bootbar"), eye=document.getElementById("bootEye");
+  var logEl=document.getElementById("bootlog"), bar=document.getElementById("bootbar"), eye=document.getElementById("bootEye"), skipEl=document.querySelector("#bootseq .bskip");
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var LINES=[
     {t:"GHOST://netrunner  v4.2.1  —  séquence d’amorçage", c:"head"},
     {t:"> init kernel fantôme ..................... [OK]"},
     {t:"> montage /dev/nexus0 .................... [OK]"},
+    {t:"> vérification intégrité partition ....... [OK]"},
     {t:"> allocation mémoire  0x7FA3:0000 → 0x7FA3:FFFF"},
     {t:"  0000  4E 45 58 55 53 2D 43 4F 52 50 00 FF 1A 8C", f:1},
     {t:"  0010  7A 3E 11 90 DE AD BE EF 00 42 13 37 C0 DE", f:1},
     {t:"  0020  52 00 A1 FF 4B 2C 9E 10 55 7F 88 EE 01 23", f:1},
+    {t:"  0030  90 0D BE 11 7C 4A 55 F0 2E 6B 9D 00 AA 42", f:1},
     {t:"> chargement des modules fantômes :"},
     {t:"  · ghost_daemon.so ............. [OK]", f:1},
     {t:"  · spoof_mac.so ................ [OK]", f:1},
     {t:"  · bypass_firewall.so .......... [OK]", f:1},
     {t:"  · packet_sniffer.so ........... [OK]", f:1},
     {t:"  · crypto_breaker.so ........... [OK]", f:1},
+    {t:"  · rootkit_loader.so ........... [OK]", f:1},
+    {t:"  · trace_cleaner.so ............ [OK]", f:1},
     {t:"> ouverture tunnel chiffré AES-256 ....... [OK]"},
     {t:"  handshake 10.0.44.12  ⇄  nexus-core:8443"},
     {t:"  ◂ SYN   ▸ SYN/ACK   ◂ ACK  ........ établi", f:1},
+    {t:"  négociation des clés RSA-4096 ......... [OK]", f:1},
     {t:"> contournement du pare-feu CORP ......... [OK]"},
     {t:"> élévation de privilèges  root@nexus .... [OK]"},
+    {t:"> usurpation identifiant opérateur ....... [OK]"},
     {t:"> scan du sous-réseau 10.0.0.0/8 ........."},
     {t:"  10.0.12.3   :22   ouvert   (ssh)", f:1},
     {t:"  10.0.19.7   :8080 ouvert   (http-proxy)", f:1},
+    {t:"  10.0.24.88  :3306 ouvert   (mysql)", f:1},
     {t:"  10.0.27.41  :1337 ouvert   (???)", f:1},
+    {t:"  10.0.31.5   :5900 ouvert   (vnc)", f:1},
     {t:"  10.0.33.9   :443  ouvert   (oracle-link)", f:1},
+    {t:"> indexation des nœuds-relais ............ 4 trouvés"},
     {t:"> cartographie des verrous de sécurité ... 6 détectés"},
-    {t:"> acquisition du canal ORACLE ............ [ scan ]", wake:1, d:520},
+    {t:"> injection du daemon dans le NEXUS ...... [OK]"},
+    {t:"> acquisition du canal ORACLE ............ [ scan ]", wake:1, d:560},
+    {t:"  reconnaissance de signature  0x0RACLE..", f:1},
     {t:"  déchiffrement du flux  ?? AE 12 ?? 00 ?? FF", f:1},
     {t:"  déchiffrement du flux  3C ?? 9A 7F ?? 01 ??", f:1},
+    {t:"  déchiffrement du flux  FF 01 ?? ?? 7E 44 ??", f:1},
+    {t:"  reconstruction du noyau IA ... 72% ... 100%", f:1},
     {t:"! signal ORACLE capté — IA EN VEILLE", c:"warn"},
+    {t:"! menace : neutralisation réseau mondial programmée", c:"warn"},
     {t:"! ALERTE : coupure Internet mondiale imminente", c:"warn"},
     {t:"> armement du protocole BLACKOUT ......... armé"},
+    {t:"> synchronisation de la cellule GHOST .... [OK]"},
     {t:"> liaison cellule GHOST établie .......... [OK]"},
     {t:"PRÊT.   Initiez le protocole BLACKOUT.", c:"rdy"}
   ];
   function fmtLine(L){ var d=document.createElement("div"); d.className="bline"+(L.c?(" "+L.c):"");
     d.innerHTML=String(L.t).replace("[OK]","[<span class=\"ok\">OK</span>]"); return d; }
-  var i=0, done=false;
-  function finish(){ if(done) return; done=true; ov.classList.add("gone");
-    window.removeEventListener("keydown",skip); ov.removeEventListener("click",skip);
-    setTimeout(function(){ if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); },620); }
-  function skip(){ finish(); }
-  function step(){
-    if(i>=LINES.length){ bar.style.width="100%"; setTimeout(finish,700); return; }
-    var L=LINES[i]; logEl.appendChild(fmtLine(L));
-    logEl.scrollTop=logEl.scrollHeight;
-    bar.style.width=Math.round(((i+1)/LINES.length)*100)+"%";
+  var i=0, done=false, ready=false;
+  function appendLine(L){
+    logEl.appendChild(fmtLine(L));
     if(L.wake && eye){ eye.classList.add("alert"); ov.classList.add("glitchflash"); setTimeout(function(){ov.classList.remove("glitchflash");},200); }
-    var d = (L.d!=null) ? L.d : (L.c==="head"?430:L.c==="warn"?620:L.c==="rdy"?340:(L.f?72:205));
+  }
+  function showReady(){
+    if(ready) return; ready=true; bar.style.width="100%";
+    if(skipEl){ skipEl.classList.add("ready"); skipEl.innerHTML="▸ Cliquez ou appuyez sur une touche pour lancer le terminal"; }
+  }
+  function finish(){
+    if(done) return; done=true;
+    ov.removeEventListener("click",onInput); window.removeEventListener("keydown",onInput);
+    document.removeEventListener('pointerdown',_bootAudioUnlock);
+    document.removeEventListener('keydown',_bootAudioUnlock);
+    document.removeEventListener('touchstart',_bootAudioUnlock);
+    ov.classList.add("gone");
+    setTimeout(function(){ if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); },620);
+  }
+  function dumpRest(){ while(i<LINES.length){ appendLine(LINES[i]); i++; } logEl.scrollTop=logEl.scrollHeight; showReady(); }
+  // 1er clic/touche = tout afficher d'un coup ; une fois PRÊT, clic/touche = lancer le terminal
+  function onInput(){ if(!ready){ dumpRest(); } else { finish(); } }
+  function step(){
+    if(done || ready) return;
+    if(i>=LINES.length){ logEl.scrollTop=logEl.scrollHeight; showReady(); return; }  // PAS de passage automatique
+    var L=LINES[i]; appendLine(L); logEl.scrollTop=logEl.scrollHeight;
+    bar.style.width=Math.round(((i+1)/LINES.length)*100)+"%";
+    var d = (L.d!=null) ? L.d : (L.c==="head"?430:L.c==="warn"?560:L.c==="rdy"?360:(L.f?66:190));
     i++;
     setTimeout(step, d);
   }
-  ov.addEventListener("click",skip); window.addEventListener("keydown",skip);
-  if(reduce){
-    LINES.forEach(function(L){ var d=fmtLine(L); d.style.animation="none"; d.style.opacity="1"; d.style.transform="none"; logEl.appendChild(d); });
-    logEl.scrollTop=logEl.scrollHeight;
-    bar.style.width="100%"; if(eye) eye.classList.add("alert"); setTimeout(finish,1500); return;
-  }
+  ov.addEventListener("click",onInput); window.addEventListener("keydown",onInput);
+  if(reduce){ dumpRest(); return; }   // tout afficher puis attendre l'entrée
   setTimeout(step,320);
 }
 
