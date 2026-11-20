@@ -614,6 +614,9 @@ function boot(){
   writePlayer(false);   // signale "connecté" (pas encore validé)
 }
 boot();
+// Si un nouveau QR est scanné dans le MÊME onglet, seule l'ancre change et la page
+// ne se recharge pas : on force un rechargement pour charger le bon défi/mini-jeu.
+window.addEventListener('hashchange', function(){ try{ location.reload(); }catch(e){} });
 </script>
 <script>
 (function(){try{
