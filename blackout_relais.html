@@ -167,10 +167,11 @@ function phoneFlash(col){
   if(eye){ eye.classList.add('alert'); setTimeout(function(){ eye.classList.remove('alert'); }, 1500); }
 }
 var _pfxLast=null, _pfxReady=false;
+function buzz(pattern){ try{ if(navigator && navigator.vibrate) navigator.vibrate(pattern); }catch(e){} }
 function applyPhoneFx(d){
   if(!d || !d.nonce || d.nonce===_pfxLast) return; _pfxLast=d.nonce;
-  if(d.kind==='speak'){ phoneFlash('rgba(0,229,255,.16)'); speakPhone(d.text); }
-  else if(d.kind==='glitch'){ phoneFlash('rgba(255,45,85,.26)'); sfx('error', function(){ beep(140,0.2); }); }
+  if(d.kind==='speak'){ phoneFlash('rgba(0,229,255,.16)'); buzz(220); speakPhone(d.text); }
+  else if(d.kind==='glitch'){ phoneFlash('rgba(255,45,85,.26)'); buzz([90,45,150]); sfx('error', function(){ beep(140,0.2); }); }
 }
 if(db && SESSION){
   try{
