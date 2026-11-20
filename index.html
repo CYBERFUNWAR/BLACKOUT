@@ -351,7 +351,12 @@
   #bootseq .bbar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0097b2,#00e5ff);
     box-shadow:0 0 12px rgba(0,229,255,.8);transition:width .3s ease}
   #bootseq .bskip{position:absolute;left:0;right:0;bottom:16px;text-align:center;font-size:11px;letter-spacing:2px;color:#3f6670}
-  #bootseq .boot-eye{--eye:64px;display:block;margin:0 auto 14px;line-height:0}
+  #bootseq .boot-eye{--eye:150px;display:block;margin:2px auto 20px;line-height:0}
+  #bootseq .boot-eye svg{filter:drop-shadow(0 0 26px rgba(0,229,255,.55))}
+  #bootseq #bootlog{width:100%;max-height:46vh;overflow:hidden}
+  #bootseq .bline{line-height:1.55}
+  #bootseq.glitchflash{animation:bglitch .18s}
+  @keyframes bglitch{0%,100%{filter:none}40%{filter:hue-rotate(-40deg) brightness(1.3)}}
   @keyframes bfade{to{opacity:1;transform:none}}
 </style>
 </head>
@@ -4083,14 +4088,37 @@ function runBoot(){
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var LINES=[
     {t:"GHOST://netrunner  v4.2.1  —  séquence d’amorçage", c:"head"},
-    {t:"> montage du périmètre NEXUS ............. [OK]"},
-    {t:"> injection du daemon fantôme ........... [OK]"},
-    {t:"> contournement du pare-feu CORP ........ [OK]"},
-    {t:"> cartographie des verrous de sécurité .. [OK]"},
-    {t:"> acquisition du canal ORACLE ........... [ scan ]", wake:1},
+    {t:"> init kernel fantôme ..................... [OK]"},
+    {t:"> montage /dev/nexus0 .................... [OK]"},
+    {t:"> allocation mémoire  0x7FA3:0000 → 0x7FA3:FFFF"},
+    {t:"  0000  4E 45 58 55 53 2D 43 4F 52 50 00 FF 1A 8C", f:1},
+    {t:"  0010  7A 3E 11 90 DE AD BE EF 00 42 13 37 C0 DE", f:1},
+    {t:"  0020  52 00 A1 FF 4B 2C 9E 10 55 7F 88 EE 01 23", f:1},
+    {t:"> chargement des modules fantômes :"},
+    {t:"  · ghost_daemon.so ............. [OK]", f:1},
+    {t:"  · spoof_mac.so ................ [OK]", f:1},
+    {t:"  · bypass_firewall.so .......... [OK]", f:1},
+    {t:"  · packet_sniffer.so ........... [OK]", f:1},
+    {t:"  · crypto_breaker.so ........... [OK]", f:1},
+    {t:"> ouverture tunnel chiffré AES-256 ....... [OK]"},
+    {t:"  handshake 10.0.44.12  ⇄  nexus-core:8443"},
+    {t:"  ◂ SYN   ▸ SYN/ACK   ◂ ACK  ........ établi", f:1},
+    {t:"> contournement du pare-feu CORP ......... [OK]"},
+    {t:"> élévation de privilèges  root@nexus .... [OK]"},
+    {t:"> scan du sous-réseau 10.0.0.0/8 ........."},
+    {t:"  10.0.12.3   :22   ouvert   (ssh)", f:1},
+    {t:"  10.0.19.7   :8080 ouvert   (http-proxy)", f:1},
+    {t:"  10.0.27.41  :1337 ouvert   (???)", f:1},
+    {t:"  10.0.33.9   :443  ouvert   (oracle-link)", f:1},
+    {t:"> cartographie des verrous de sécurité ... 6 détectés"},
+    {t:"> acquisition du canal ORACLE ............ [ scan ]", wake:1, d:520},
+    {t:"  déchiffrement du flux  ?? AE 12 ?? 00 ?? FF", f:1},
+    {t:"  déchiffrement du flux  3C ?? 9A 7F ?? 01 ??", f:1},
     {t:"! signal ORACLE capté — IA EN VEILLE", c:"warn"},
-    {t:"> liaison cellule GHOST établie ......... [OK]"},
-    {t:"PRÊT.  Initiez le protocole BLACKOUT.", c:"rdy"}
+    {t:"! ALERTE : coupure Internet mondiale imminente", c:"warn"},
+    {t:"> armement du protocole BLACKOUT ......... armé"},
+    {t:"> liaison cellule GHOST établie .......... [OK]"},
+    {t:"PRÊT.   Initiez le protocole BLACKOUT.", c:"rdy"}
   ];
   function fmtLine(L){ var d=document.createElement("div"); d.className="bline"+(L.c?(" "+L.c):"");
     d.innerHTML=String(L.t).replace("[OK]","[<span class=\"ok\">OK</span>]"); return d; }
@@ -4100,17 +4128,20 @@ function runBoot(){
     setTimeout(function(){ if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); },620); }
   function skip(){ finish(); }
   function step(){
-    if(i>=LINES.length){ bar.style.width="100%"; setTimeout(finish,650); return; }
+    if(i>=LINES.length){ bar.style.width="100%"; setTimeout(finish,700); return; }
     var L=LINES[i]; logEl.appendChild(fmtLine(L));
+    logEl.scrollTop=logEl.scrollHeight;
     bar.style.width=Math.round(((i+1)/LINES.length)*100)+"%";
-    if(L.wake && eye) eye.classList.add("alert");
+    if(L.wake && eye){ eye.classList.add("alert"); ov.classList.add("glitchflash"); setTimeout(function(){ov.classList.remove("glitchflash");},200); }
+    var d = (L.d!=null) ? L.d : (L.c==="head"?430:L.c==="warn"?620:L.c==="rdy"?340:(L.f?72:205));
     i++;
-    setTimeout(step, L.c==="warn"?640:(L.c==="rdy"?320:255));
+    setTimeout(step, d);
   }
   ov.addEventListener("click",skip); window.addEventListener("keydown",skip);
   if(reduce){
     LINES.forEach(function(L){ var d=fmtLine(L); d.style.animation="none"; d.style.opacity="1"; d.style.transform="none"; logEl.appendChild(d); });
-    bar.style.width="100%"; if(eye) eye.classList.add("alert"); setTimeout(finish,1300); return;
+    logEl.scrollTop=logEl.scrollHeight;
+    bar.style.width="100%"; if(eye) eye.classList.add("alert"); setTimeout(finish,1500); return;
   }
   setTimeout(step,320);
 }
