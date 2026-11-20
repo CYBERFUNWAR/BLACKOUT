@@ -153,6 +153,20 @@ function unlockPhoneAudio(){
 }
 window.addEventListener('pointerdown', unlockPhoneAudio);
 window.addEventListener('touchstart', unlockPhoneAudio);
+/* garder l'écran allumé tant que la page relais est ouverte (anti-veille auto) */
+var _wakeLock=null;
+async function requestWakeLock(){
+  try{
+    if(('wakeLock' in navigator) && document.visibilityState==='visible' && !_wakeLock){
+      _wakeLock=await navigator.wakeLock.request('screen');
+      _wakeLock.addEventListener('release', function(){ _wakeLock=null; });
+    }
+  }catch(e){ _wakeLock=null; }
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible'){ _wakeLock=null; requestWakeLock(); } });
+window.addEventListener('pointerdown', requestWakeLock);
+window.addEventListener('touchstart', requestWakeLock);
+requestWakeLock();
 function speakPhone(txt){
   try{ if(!window.speechSynthesis || !txt) return;
     var u=new SpeechSynthesisUtterance(txt); u.lang='fr-FR'; u.pitch=0.5; u.rate=0.95; u.volume=1;
