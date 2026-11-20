@@ -3749,7 +3749,8 @@ function regieSkipRelay(){
 var DEFIS={
   sequence:{label:'MÉMOIRE NEURONALE', desc:"Chaque agent reçoit sur son téléphone une séquence neuronale à mémoriser puis reproduire. Le hack ne reprend que lorsque TOUTE l'équipe a synchronisé sa mémoire."},
   decode:{label:'DÉCRYPTAGE BINAIRE', desc:"NEXUS verrouille ses accès en binaire. Chaque agent décode les octets sur son téléphone. Le hack reprend quand toute l'équipe a reconstitué la clé."},
-  reflex:{label:'PURGE DES INTRUSIONS', desc:"Des processus hostiles envahissent chaque nœud. Chaque agent purge les intrusions sur son téléphone. Le hack reprend quand tous les nœuds sont purgés."}
+  reflex:{label:'PURGE DES INTRUSIONS', desc:"Des processus hostiles envahissent chaque nœud. Chaque agent purge les intrusions sur son téléphone. Le hack reprend quand tous les nœuds sont purgés."},
+  freqlock:{label:'COFFRE FRÉQUENTIEL', desc:"Chaque module est scellé par un double verrou de fréquence. Chaque agent tourne deux molettes pour aligner les signaux sur son téléphone. Le hack reprend quand tous les coffres sont déverrouillés."}
 };
 function randDefi(){ var k=Object.keys(DEFIS); return k[Math.floor(Math.random()*k.length)]; }
 var DEFI_SESSION=null, defiUnsub=null, defiActive=false, defiOnDone=null;

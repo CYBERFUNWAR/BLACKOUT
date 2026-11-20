@@ -487,6 +487,81 @@ MINI.reflex=function(){
   spawn();
 };
 
+
+/* ---------- 4) COFFRE FRÉQUENTIEL (inspiré du coffre portable RE2R) ---------- */
+MINI.freqlock=function(){
+  var ROUNDS=3, round=0, TOL=3.4, HOLD=650;
+  var ch=[{T:0,C:0,lock:false,ph:0},{T:0,C:0,lock:false,ph:0}];
+  var holding=false, holdStart=0, raf=null;
+  function channelHTML(i){
+    return '<div class="fl-ch" id="flch'+i+'" data-i="'+i+'">'+
+      '<div class="fl-head"><span class="fl-lbl">CANAL '+(i===0?'A':'B')+'</span><span class="fl-stat" id="flst'+i+'">○ libre</span></div>'+
+      '<canvas class="fl-cv" id="flcv'+i+'" width="300" height="74"></canvas>'+
+      '<div class="fl-knobrow"><div class="fl-knob" id="flkn'+i+'"><i></i></div><span class="fl-hint">↕ glissez pour tourner la molette</span></div>'+
+    '</div>';
+  }
+  miniShell('// DÉFI COLLECTIF — SYNCHRONISATION FRÉQUENTIELLE',
+    'Coffre fréquentiel',
+    'Le module NEXUS est scellé par un double verrou. Tournez chaque molette pour aligner son signal (plein) sur la fréquence cible (pointillés). Maintenez les DEUX canaux alignés en même temps pour ouvrir. 3 paliers.',
+    '<div id="flprog" class="mini-prog"></div>'+
+    '<div class="fl-wrap">'+channelHTML(0)+channelHTML(1)+'</div>');
+  injectMiniCSS(); injectFreqCSS();
+  function freqOf(v){ return 2 + (v/100)*9; }
+  function newRound(){
+    for(var i=0;i<2;i++){ var c=ch[i]; c.T=16+Math.random()*68; do{ c.C=10+Math.random()*80; }while(Math.abs(c.C-c.T)<24); c.lock=false; }
+    var p=document.getElementById('flprog'); if(p) p.innerHTML='PALIER '+(round+1)+'/'+ROUNDS;
+    setMsg('Alignez les deux canaux, puis maintenez.'); updStat();
+  }
+  function drawWave(g,W,H,freq,ph,col,lw,dashed){
+    g.beginPath(); g.lineWidth=lw; g.strokeStyle=col; if(dashed)g.setLineDash([4,5]);else g.setLineDash([]);
+    for(var x=0;x<=W;x+=2){ var y=H/2 + Math.sin((x/W)*freq*Math.PI*2 + ph)*(H/2-7); if(x===0)g.moveTo(x,y);else g.lineTo(x,y); }
+    g.stroke(); g.setLineDash([]);
+  }
+  function draw(){
+    raf=requestAnimationFrame(draw);
+    for(var i=0;i<2;i++){
+      var cv=document.getElementById('flcv'+i); if(!cv){ if(raf)cancelAnimationFrame(raf); return; }
+      var g=cv.getContext('2d'), W=cv.width, H=cv.height; g.clearRect(0,0,W,H);
+      ch[i].ph+=0.05;
+      drawWave(g,W,H,freqOf(ch[i].T),ch[i].ph,'rgba(130,150,170,.5)',1,true);
+      var near=Math.abs(ch[i].C-ch[i].T)<=TOL;
+      drawWave(g,W,H,freqOf(ch[i].C),ch[i].ph, near?'#2fff9a':'#ff2e88',2.4,false);
+      var kn=document.getElementById('flkn'+i); if(kn) kn.style.transform='rotate('+((ch[i].C/100)*280-140)+'deg)';
+    }
+    checkLock();
+  }
+  function updStat(){
+    for(var i=0;i<2;i++){ var e=document.getElementById('flst'+i); if(e){ e.textContent=ch[i].lock?'● VERROUILLÉ':'○ libre'; e.className='fl-stat'+(ch[i].lock?' on':''); } }
+  }
+  function checkLock(){
+    var a=Math.abs(ch[0].C-ch[0].T)<=TOL, b=Math.abs(ch[1].C-ch[1].T)<=TOL;
+    if(ch[0].lock!==a){ ch[0].lock=a; if(a)beep(900,.06); updStat(); }
+    if(ch[1].lock!==b){ ch[1].lock=b; if(b)beep(1120,.06); updStat(); }
+    if(a&&b){
+      if(!holding){ holding=true; holdStart=performance.now(); setMsg('✓ Verrous alignés — maintenez…','ok'); }
+      else if(performance.now()-holdStart>=HOLD){
+        holding=false; round++;
+        if(round>=ROUNDS){ setMsg('✓ Coffre déverrouillé.','ok'); beep(1320,.22); if(raf)cancelAnimationFrame(raf); solved(); }
+        else { setMsg('✓ Palier '+round+' synchronisé.','ok'); beep(1200,.15); setTimeout(newRound,520); }
+      }
+    } else if(holding){ holding=false; setMsg('Alignez les deux canaux, puis maintenez.'); }
+  }
+  function bindCh(i){
+    var el=document.getElementById('flch'+i); if(!el) return;
+    var startY=0,startC=0,active=false,lastTick=99;
+    el.addEventListener('pointerdown',function(e){ active=true; startY=e.clientY; startC=ch[i].C; try{el.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); },{passive:false});
+    el.addEventListener('pointermove',function(e){ if(!active)return; e.preventDefault();
+      var nc=Math.max(0,Math.min(100,startC+(startY-e.clientY)*0.6)); ch[i].C=nc;
+      var d=Math.abs(nc-ch[i].T); var t=Math.floor(nc);
+      if(t!==lastTick && d<16){ lastTick=t; beep(440+(16-d)*42,.018); }
+    },{passive:false});
+    el.addEventListener('pointerup',function(){ active=false; });
+    el.addEventListener('pointercancel',function(){ active=false; });
+  }
+  bindCh(0); bindCh(1);
+  newRound(); draw();
+};
+
 function injectMiniCSS(){
   if(document.getElementById('minicss')) return;
   var st=document.createElement('style'); st.id='minicss';
@@ -508,6 +583,23 @@ function injectMiniCSS(){
   '.rx-cell:active{transform:scale(.96)}'+
   '.rx-cell.intr{background:radial-gradient(circle,#ff2e88,#7a0030);border-color:var(--mag);box-shadow:0 0 22px var(--mag),inset 0 0 14px rgba(255,46,136,.6)}'+
   '.rx-cell.purged{background:radial-gradient(circle,#2fff9a,#065a35);border-color:var(--green);box-shadow:0 0 18px var(--green)}';
+  document.head.appendChild(st);
+}
+function injectFreqCSS(){
+  if(document.getElementById('freqcss')) return;
+  var st=document.createElement('style'); st.id='freqcss';
+  st.textContent=
+  '.fl-wrap{display:flex;flex-direction:column;gap:14px;margin:6px 0 4px}'+
+  '.fl-ch{border:1px solid var(--line);border-radius:9px;background:#0a111a;padding:12px 12px 14px;touch-action:none;user-select:none;-webkit-user-select:none}'+
+  '.fl-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'+
+  '.fl-lbl{font-size:12px;letter-spacing:.16em;color:var(--cyan);font-weight:700}'+
+  '.fl-stat{font-size:11px;letter-spacing:.1em;color:var(--grey)}'+
+  '.fl-stat.on{color:var(--green);text-shadow:0 0 10px rgba(47,255,154,.5)}'+
+  '.fl-cv{width:100%;height:74px;display:block;background:radial-gradient(circle at 50% 50%,#0c1620,#070d14);border:1px solid var(--line);border-radius:6px}'+
+  '.fl-knobrow{display:flex;align-items:center;gap:12px;margin-top:11px}'+
+  '.fl-knob{width:54px;height:54px;border-radius:50%;flex:0 0 auto;background:radial-gradient(circle at 38% 34%,#243445,#0c141d);border:2px solid #31465c;box-shadow:inset 0 2px 6px rgba(0,0,0,.6),0 0 14px rgba(0,229,255,.12);position:relative}'+
+  '.fl-knob i{position:absolute;left:50%;top:6px;width:3px;height:17px;margin-left:-1.5px;border-radius:2px;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}'+
+  '.fl-hint{font-size:11px;color:var(--grey);letter-spacing:.04em}';
   document.head.appendChild(st);
 }
 
