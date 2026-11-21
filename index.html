@@ -424,11 +424,12 @@
     <div class="modepick">
       <button class="btn full fam" onclick="startGame('famille')">▸ INITIER — MODE FAMILLE</button>
       <button class="btn full" onclick="startGame('standard')">▸ INITIER — MODE STANDARD</button>
-      <button class="btn full mag" onclick="startGame('expert')">▸ INITIER — MODE EXPERT</button>
+      <!-- MODE EXPERT temporairement masqué (réafficher : retirer style="display:none") -->
+      <button class="btn full mag" style="display:none" onclick="startGame('expert')">▸ INITIER — MODE EXPERT</button>
     </div>
     <button type="button" class="btn ghost full" style="margin-top:12px" onclick="showRanking()">📊 CLASSEMENT DES ÉQUIPES</button>
     <img class="cflogo" src="img/cyberfun-logo.png" alt="" onerror="this.style.display='none'">
-    <div class="footnote">STANDARD : énigmes directes · EXPERT : double couche + coffre + breach · FAMILLE : plus doux (indices généreux, feuilles STANDARD)<br>Animateur : touche « R » pour la régie.</div>
+    <div class="footnote">STANDARD : énigmes directes · FAMILLE : plus doux (indices généreux, feuilles STANDARD)<br>Animateur : touche « R » pour la régie.</div>
   </section>
 
   <!-- ============ JEU ============ -->
